@@ -5,11 +5,12 @@ from time import perf_counter
 
 from qdrant_client import QdrantClient, models
 
+from mirage.adapters import load_documents_for_spec
 from mirage.artifacts import ArtifactLayout
-from mirage.chunking import SemanticChunker, TokenChunker
+from mirage.chunking import SemanticChunker, SentenceChunker, TokenChunker
 from mirage.config import ChunkingConfig, ResolvedSpec
 from mirage.embeddings import embed_texts
-from mirage.io_utils import read_jsonl, write_json, write_jsonl
+from mirage.io_utils import read_json, read_jsonl, write_json, write_jsonl
 from mirage.schemas import Chunk, Document
 
 _DISTANCE_MAP = {
@@ -31,7 +32,7 @@ def _make_client(spec: ResolvedSpec) -> QdrantClient:
     return QdrantClient(url=spec.env.qdrant_url)
 
 
-def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SemanticChunker:
+def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | SemanticChunker:
     config = ChunkingConfig(
         kind=spec.chunking_kind,
         tokenizer=spec.chunk_tokenizer,
@@ -41,6 +42,8 @@ def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SemanticChunker:
     )
     if spec.chunking_kind == "semantic":
         return SemanticChunker(config)
+    if spec.chunking_kind == "sentence":
+        return SentenceChunker(config)
     return TokenChunker(config)
 
 
@@ -84,36 +87,88 @@ def _create_collection(client: QdrantClient, spec: ResolvedSpec, vector_size: in
     client.create_collection(collection_name=collection_name, vectors_config=vector_params)
 
 
-def prepare_documents(spec: ResolvedSpec) -> tuple[list[Document], dict[str, object]]:
-    documents = read_jsonl(spec.corpus_path, Document)
-    if not documents:
-        raise ValueError(f"No documents found in {spec.corpus_path}")
-
+def prepare_documents(spec: ResolvedSpec, *, reset: bool = False) -> tuple[list[Document], dict[str, object]]:
     layout = ArtifactLayout(spec)
     prepared_dir = layout.prepared_dir()
+    prepared_path = prepared_dir / "documents.jsonl"
+
+    if not reset and prepared_path.exists():
+        documents = read_jsonl(prepared_path, Document)
+        if documents:
+            return documents, {
+                "prepared_dir": str(prepared_dir),
+                "documents": len(documents),
+                "reused_prepared": True,
+            }
+
+    documents = load_documents_for_spec(spec)
+    if not documents:
+        raise ValueError(f"No documents found for dataset adapter '{spec.dataset_adapter_id}'")
+
     prepared_rows = [document.model_dump(mode="json") for document in documents]
-    write_jsonl(prepared_dir / "documents.jsonl", prepared_rows)
+    write_jsonl(prepared_path, prepared_rows)
     write_json(prepared_dir / "resolved_spec.json", spec.model_dump(mode="json", exclude={"env"}))
-    return documents, {"prepared_dir": str(prepared_dir), "documents": len(documents)}
+    return documents, {
+        "prepared_dir": str(prepared_dir),
+        "documents": len(documents),
+        "reused_prepared": False,
+    }
 
 
-def build_chunks(spec: ResolvedSpec, documents: list[Document]) -> tuple[list[Chunk], dict[str, object]]:
+def build_chunks(
+    spec: ResolvedSpec,
+    documents: list[Document],
+    *,
+    reset: bool = False,
+) -> tuple[list[Chunk], dict[str, object]]:
+    layout = ArtifactLayout(spec)
+    chunks_dir = layout.chunks_dir()
+    chunks_path = chunks_dir / "chunks.jsonl"
+
+    if not reset and chunks_path.exists():
+        chunks = read_jsonl(chunks_path, Chunk)
+        if chunks:
+            return chunks, {
+                "chunks_dir": str(chunks_dir),
+                "chunks": len(chunks),
+                "reused_chunks": True,
+            }
+
     chunker = _build_chunker(spec)
     chunks = chunker.chunk_documents(documents)
     if not chunks:
         raise ValueError("Chunking produced zero chunks")
 
-    layout = ArtifactLayout(spec)
-    chunks_dir = layout.chunks_dir()
-    write_jsonl(chunks_dir / "chunks.jsonl", [chunk.model_dump(mode="json") for chunk in chunks])
+    write_jsonl(chunks_path, [chunk.model_dump(mode="json") for chunk in chunks])
     write_json(chunks_dir / "resolved_spec.json", spec.model_dump(mode="json", exclude={"env"}))
-    return chunks, {"chunks_dir": str(chunks_dir), "chunks": len(chunks)}
+    return chunks, {
+        "chunks_dir": str(chunks_dir),
+        "chunks": len(chunks),
+        "reused_chunks": False,
+    }
 
 
 def ingest_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
     started = perf_counter()
-    documents, prepared_info = prepare_documents(spec)
-    chunks, chunk_info = build_chunks(spec, documents)
+    documents, prepared_info = prepare_documents(spec, reset=reset)
+    chunks, chunk_info = build_chunks(spec, documents, reset=reset)
+
+    layout = ArtifactLayout(spec)
+    store_dir = layout.store_dir()
+    client = _make_client(spec)
+    collection_name = layout.collection_name()
+    metadata_path = store_dir / "metadata.json"
+    if not reset and metadata_path.exists() and client.collection_exists(collection_name=collection_name):
+        metadata = read_json(metadata_path)
+        return {
+            **metadata,
+            "prepared_dir": prepared_info["prepared_dir"],
+            "chunks_dir": chunk_info["chunks_dir"],
+            "store_dir": str(store_dir),
+            "reused_prepared": prepared_info["reused_prepared"],
+            "reused_chunks": chunk_info["reused_chunks"],
+            "reused_store": True,
+        }
 
     vectors, embedding_tokens, embedding_cost_usd = embed_texts(
         provider=spec.store_embedding_provider,
@@ -127,10 +182,6 @@ def ingest_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
     if not vectors:
         raise ValueError("Embedding produced zero vectors")
 
-    layout = ArtifactLayout(spec)
-    store_dir = layout.store_dir()
-    client = _make_client(spec)
-    collection_name = layout.collection_name()
     _create_collection(client, spec, len(vectors[0]), reset=reset)
     client.upsert(collection_name=collection_name, points=_build_points(chunks, vectors), wait=True)
 
@@ -152,10 +203,13 @@ def ingest_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
         "duration_ms": duration_ms,
     }
     write_json(store_dir / "resolved_spec.json", spec.model_dump(mode="json", exclude={"env"}))
-    write_json(store_dir / "metadata.json", metadata)
+    write_json(metadata_path, metadata)
     return {
         **metadata,
         "prepared_dir": prepared_info["prepared_dir"],
         "chunks_dir": chunk_info["chunks_dir"],
         "store_dir": str(store_dir),
+        "reused_prepared": prepared_info["reused_prepared"],
+        "reused_chunks": chunk_info["reused_chunks"],
+        "reused_store": False,
     }

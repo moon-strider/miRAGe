@@ -6,6 +6,3 @@ experiment_id = "baseline-freeze"
 load = "token-default"
 store = "qdrant-default"
 inference = "simple-rag"
-
-[fixed]
-query_embedding_model_id = "emb-bge-small-en-v1.5"

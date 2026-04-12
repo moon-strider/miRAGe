@@ -10,11 +10,11 @@ inference = "simple-rag"
 [fixed]
 preprocessing_variant_id = "prep-basic-clean-v1"
 chunking_model_id = "none"
-query_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-text-embedding-3-small"
 
 [matrix]
 chunking_variant_id = [
-  "chunk-token-500-50-v1",
-  "chunk-token-256-32-v1",
-  "chunk-sentence-384-32-v1",
+  "chunk-token-1024-128-v1",
+  "chunk-token-768-128-v1",
+  "chunk-sentence-1024-128-v1",
 ]

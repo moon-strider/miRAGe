@@ -12,6 +12,46 @@ def test_baseline_experiment_resolves_three_generation_specs() -> None:
         "gen-minimax-2.7",
     }
     assert {spec.chunking_model_id for spec in specs} == {"none"}
+    assert {spec.dataset_adapter_id for spec in specs} == {"jsonl"}
+    assert {spec.eval_adapter_id for spec in specs} == {"jsonl"}
+    assert {spec.store_embedding_model_id for spec in specs} == {"emb-text-embedding-3-small"}
+    assert {spec.query_embedding_model_id for spec in specs} == {"emb-text-embedding-3-small"}
+
+
+def test_external_dataset_registry_resolves_adapter_roots() -> None:
+    specs = load_experiment_specs(
+        "experiments/01-rag-foundation/baseline-freeze",
+        overrides={
+            "dataset_id": "ds-beir-scifact-v1",
+            "evalset_id": "ev-beir-scifact-v1",
+            "generation_model_id": "gen-llama-3.1-8b",
+        },
+    )
+
+    assert len(specs) == 1
+    spec = specs[0]
+    assert spec.dataset_adapter_id == "scifact"
+    assert spec.eval_adapter_id == "scifact"
+    assert spec.dataset_root == "data/datasets/scifact"
+    assert spec.eval_root == "data/datasets/scifact"
+    assert spec.eval_split == "test"
+    assert spec.corpus_path is None
+    assert spec.eval_path is None
+
+
+def test_deterministic_chunking_experiment_resolves_three_chunking_variants() -> None:
+    specs = load_experiment_specs(
+        "experiments/01-rag-foundation/load-deterministic-chunking",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )
+
+    assert len(specs) == 3
+    assert {spec.chunking_variant_id for spec in specs} == {
+        "chunk-token-1024-128-v1",
+        "chunk-token-768-128-v1",
+        "chunk-sentence-1024-128-v1",
+    }
+    assert {spec.chunking_kind for spec in specs} == {"token", "sentence"}
 
 
 def test_embedding_experiment_uses_coupled_cases() -> None:
@@ -34,9 +74,9 @@ def test_artifact_layout_uses_layered_paths() -> None:
 
     assert str(layout.prepared_dir()).endswith("runs/prepared/ds-docs-v1/prep-basic-clean-v1")
     assert str(layout.chunks_dir()).endswith(
-        "runs/chunks/ds-docs-v1/prep-basic-clean-v1/chunk-token-500-50-v1/none"
+        "runs/chunks/ds-docs-v1/prep-basic-clean-v1/chunk-token-1024-128-v1/none"
     )
     assert str(layout.store_dir()).endswith(
-        "runs/store/ds-docs-v1/load-prep-basic-clean-v1__chunk-token-500-50-v1__none/"
-        "store-qdrant__idx-qdrant-hnsw-cosine-default-v1__emb-bge-small-en-v1.5"
+        "runs/store/ds-docs-v1/load-prep-basic-clean-v1__chunk-token-1024-128-v1__none/"
+        "store-qdrant__idx-qdrant-hnsw-cosine-default-v1__emb-text-embedding-3-small"
     )

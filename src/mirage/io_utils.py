@@ -21,6 +21,12 @@ def read_jsonl(path: str | Path, model: type[T]) -> list[T]:
     return items
 
 
+def read_json(path: str | Path) -> dict:
+    file_path = Path(path)
+    with file_path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
 def write_jsonl(path: str | Path, rows: Iterable[dict]) -> None:
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)

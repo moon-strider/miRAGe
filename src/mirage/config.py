@@ -47,11 +47,16 @@ class SystemConfig(BaseModel):
 
 
 class DatasetEntry(BaseModel):
-    corpus_path: str
+    adapter_id: str = "jsonl"
+    dataset_root: str | None = None
+    corpus_path: str | None = None
 
 
 class EvalSetEntry(BaseModel):
-    eval_path: str
+    adapter_id: str = "jsonl"
+    eval_root: str | None = None
+    eval_path: str | None = None
+    split: str = "dev"
 
 
 class PreprocessingVariant(BaseModel):
@@ -181,8 +186,13 @@ class ResolvedSpec(BaseModel):
     insufficient_context_response: str
     price_catalog_version: str
     runs_dir: str
-    corpus_path: str
-    eval_path: str
+    dataset_adapter_id: str
+    dataset_root: str | None = None
+    eval_adapter_id: str
+    eval_root: str | None = None
+    eval_split: str = "dev"
+    corpus_path: str | None = None
+    eval_path: str | None = None
     load_variant_id: str
     store_variant_id: str
     inference_variant_id: str
@@ -358,6 +368,11 @@ def _build_resolved_spec(
         insufficient_context_response=insufficient_context_response,
         price_catalog_version=system.pricing.price_catalog_version,
         runs_dir=system.paths.runs_dir,
+        dataset_adapter_id=dataset.adapter_id,
+        dataset_root=dataset.dataset_root,
+        eval_adapter_id=evalset.adapter_id,
+        eval_root=evalset.eval_root,
+        eval_split=evalset.split,
         corpus_path=dataset.corpus_path,
         eval_path=evalset.eval_path,
         load_variant_id=load_variant_id,

@@ -7,28 +7,28 @@ kind = "basic-clean-dedupe"
 [preprocessing_variants.prep-basic-clean-metadata-v1]
 kind = "basic-clean-metadata"
 
-[chunking_variants.chunk-token-500-50-v1]
+[chunking_variants.chunk-token-1024-128-v1]
 kind = "token"
 tokenizer = "cl100k_base"
-chunk_size = 500
-chunk_overlap = 50
+chunk_size = 1024
+chunk_overlap = 128
 
-[chunking_variants.chunk-token-256-32-v1]
+[chunking_variants.chunk-token-768-128-v1]
 kind = "token"
 tokenizer = "cl100k_base"
-chunk_size = 256
-chunk_overlap = 32
+chunk_size = 768
+chunk_overlap = 128
 
-[chunking_variants.chunk-sentence-384-32-v1]
-kind = "token"
+[chunking_variants.chunk-sentence-1024-128-v1]
+kind = "sentence"
 tokenizer = "cl100k_base"
-chunk_size = 384
-chunk_overlap = 32
+chunk_size = 1024
+chunk_overlap = 128
 
 [chunking_variants.chunk-semantic-v1]
 kind = "semantic"
 tokenizer = "cl100k_base"
-chunk_size = 500
+chunk_size = 1024
 chunk_overlap = 0
 
 [search_algorithms.search-dense-topk5-v1]

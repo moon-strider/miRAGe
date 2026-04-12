@@ -22,11 +22,18 @@ Unless an experiment overlay overrides it, this group uses:
 - `evalset_id = ev-dev-v1`
 - `store_backend_id = qdrant`
 - `store_index_variant_id = idx-qdrant-hnsw-cosine-default-v1`
+- `store_embedding_model_id = emb-text-embedding-3-small`
+- `query_embedding_model_id = emb-text-embedding-3-small`
 - `search_algorithm_id = search-dense-topk5-v1`
 - `reranker_id = none`
 - `prompt_variant_id = prompt-grounded-citations-v1`
 - `tool_policy_id = none`
 - `generation_model_id ∈ {gen-llama-3.1-8b, gen-grok-4-fast, gen-minimax-2.7}`
+
+The committed `ds-docs-v1` fixture is a smoke-test dataset only.
+External benchmark sources for real runs are cataloged under `data/datasets/`.
+Their adapters map upstream payloads into repository `Document` and `EvalExample`
+records at runtime; no repository-local normalized benchmark copies are stored.
 
 ## Experiment directories
 

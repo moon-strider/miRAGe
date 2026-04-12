@@ -1,5 +1,5 @@
 [fixed]
-query_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-text-embedding-3-small"
 search_algorithm_id = "search-dense-topk5-v1"
 reranker_id = "none"
 prompt_variant_id = "prompt-grounded-citations-v1"

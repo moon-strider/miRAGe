@@ -2,6 +2,7 @@ set shell := ["zsh", "-cu"]
 
 experiment := "experiments/01-rag-foundation/baseline-freeze"
 question := "What tool manages Python dependencies?"
+chunking_experiment := "experiments/01-rag-foundation/load-deterministic-chunking"
 
 setup:
     uv sync --dev
@@ -15,8 +16,14 @@ down:
 resolve:
     uv run mirage resolve --experiment {{experiment}}
 
+resolve-chunking:
+    uv run mirage resolve --experiment {{chunking_experiment}} --set generation_model_id='"gen-llama-3.1-8b"'
+
 ingest:
     uv run mirage ingest --experiment {{experiment}} --reset
+
+ingest-chunking:
+    uv run mirage ingest --experiment {{chunking_experiment}} --reset
 
 ask:
     uv run mirage ask --experiment {{experiment}} --set generation_model_id='"gen-llama-3.1-8b"' "{{question}}"

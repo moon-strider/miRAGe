@@ -1,0 +1,37 @@
+{
+  "dataset_id": "qasper",
+  "source_family": "qasper",
+  "upstream_dataset_id": "allenai/qasper",
+  "source_urls": {
+    "huggingface": "https://huggingface.co/datasets/allenai/qasper",
+    "train_dev_archive": "https://qasper-dataset.s3.us-west-2.amazonaws.com/qasper-train-dev-v0.3.tgz",
+    "test_archive": "https://qasper-dataset.s3.us-west-2.amazonaws.com/qasper-test-and-evaluator-v0.3.tgz"
+  },
+  "pinned": {
+    "huggingface_sha": "fdc9d8214fbab5dd782958601db4d678e6934a54",
+    "license": "CC BY 4.0"
+  },
+  "stats": {
+    "papers": 1585,
+    "questions": 5049,
+    "train_papers": 888,
+    "validation_papers": 281,
+    "test_papers": 416,
+    "download_size_bytes": 14700917,
+    "dataset_size_bytes": 36813300,
+    "size_in_bytes": 68556447
+  },
+  "task": {
+    "domain": "long-document scientific question answering",
+    "language": "en",
+    "primary_focus": "long-context retrieval and evidence grounding",
+    "secondary_focus": "chunking sensitivity over full papers"
+  },
+  "adapter": {
+    "dataset_adapter_id": "qasper",
+    "eval_adapter_id": "qasper",
+    "dataset_root": "data/datasets/qasper",
+    "eval_root": "data/datasets/qasper",
+    "default_eval_split": "dev"
+  }
+}

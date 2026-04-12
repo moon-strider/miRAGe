@@ -25,11 +25,11 @@ pricing_input_per_1m_tokens_usd = 0.0
 [embedding_models."emb-text-embedding-3-small"]
 provider = "openrouter"
 model = "openai/text-embedding-3-small"
-batch_size = 64
+batch_size = 32
 pricing_input_per_1m_tokens_usd = 0.02
 
 [embedding_models."emb-text-embedding-3-large"]
 provider = "openrouter"
 model = "openai/text-embedding-3-large"
-batch_size = 64
+batch_size = 16
 pricing_input_per_1m_tokens_usd = 0.13

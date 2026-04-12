@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 
+from mirage.adapters import load_eval_examples_for_spec
 from mirage.artifacts import ArtifactLayout
 from mirage.config import ResolvedSpec
-from mirage.io_utils import read_jsonl, write_json, write_jsonl
+from mirage.io_utils import write_json, write_jsonl
 from mirage.metrics import (
     citation_hit_rate,
     exact_match,
@@ -16,7 +17,7 @@ from mirage.metrics import (
     token_f1,
 )
 from mirage.pipeline import answer_question
-from mirage.schemas import EvalExample, RunMetrics
+from mirage.schemas import RunMetrics
 
 
 def evaluate_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
@@ -24,9 +25,11 @@ def evaluate_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
         raise NotImplementedError(
             f"Tool policy '{spec.tool_policy_id}' is scaffolded but not implemented in runtime yet."
         )
-    examples = read_jsonl(spec.eval_path, EvalExample)
+    examples = load_eval_examples_for_spec(spec)
     if not examples:
-        raise ValueError(f"No evaluation examples found in {spec.eval_path}")
+        raise ValueError(
+            f"No evaluation examples found for eval adapter '{spec.eval_adapter_id}' and split '{spec.eval_split}'"
+        )
 
     if reset:
         answers_dir = ArtifactLayout(spec).answers_dir()
