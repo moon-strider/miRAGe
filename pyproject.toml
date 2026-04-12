@@ -1,0 +1,40 @@
+[project]
+name = "mirage-lab"
+version = "0.1.0"
+description = "Minimal baseline platform for reproducible RAG experiments."
+readme = "README.md"
+requires-python = ">=3.12.2,<3.13"
+dependencies = [
+  "click==8.1.7",
+  "fastembed==0.3.6",
+  "openai==1.40.6",
+  "pydantic==2.8.2",
+  "pydantic-settings==2.4.0",
+  "qdrant-client==1.10.1",
+  "tiktoken==0.7.0",
+  "typer==0.12.3",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==8.3.2",
+  "ruff==0.6.4",
+]
+
+[project.scripts]
+mirage = "mirage.cli:app"
+
+[build-system]
+requires = ["hatchling==1.25.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mirage"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

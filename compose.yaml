@@ -1,0 +1,9 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.10.1
+    restart: unless-stopped
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+volumes:
+  qdrant_storage:

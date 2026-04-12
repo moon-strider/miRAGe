@@ -1,0 +1,5 @@
+{"qid":"q-001","question":"What is the main command entrypoint for common workflows?","gold_answers":["just"],"gold_doc_ids":["doc-002"],"answer_type":"factoid","metadata":{}}
+{"qid":"q-002","question":"Which tool manages Python dependencies in the baseline repository conventions?","gold_answers":["uv"],"gold_doc_ids":["doc-002"],"answer_type":"factoid","metadata":{}}
+{"qid":"q-003","question":"Which vector database is used in the first naive baseline?","gold_answers":["Qdrant"],"gold_doc_ids":["doc-003"],"answer_type":"factoid","metadata":{}}
+{"qid":"q-004","question":"Why does each evaluation example store gold_doc_ids instead of chunk ids?","gold_answers":["to keep later chunking experiments comparable"],"gold_doc_ids":["doc-004"],"answer_type":"factoid","metadata":{}}
+{"qid":"q-005","question":"Name one retrieval metric tracked by the baseline.","gold_answers":["Hit at 5","Recall at 5","MRR at 10"],"gold_doc_ids":["doc-005"],"answer_type":"factoid","metadata":{}}
