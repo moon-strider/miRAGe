@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable
 from time import perf_counter
 
-from fastembed import TextEmbedding
 from qdrant_client import QdrantClient, models
 
-from mirage.chunking import TokenChunker
-from mirage.config import AppConfig
-from mirage.io_utils import read_jsonl
+from mirage.artifacts import ArtifactLayout
+from mirage.chunking import SemanticChunker, TokenChunker
+from mirage.config import ChunkingConfig, ResolvedSpec
+from mirage.embeddings import embed_texts
+from mirage.io_utils import read_jsonl, write_json, write_jsonl
 from mirage.schemas import Chunk, Document
 
 _DISTANCE_MAP = {
@@ -19,30 +19,29 @@ _DISTANCE_MAP = {
 }
 
 
-def _make_client(config: AppConfig) -> QdrantClient:
-    return QdrantClient(url=config.qdrant_url)
+def _make_client(spec: ResolvedSpec) -> QdrantClient:
+    if spec.store_backend_kind != "qdrant":
+        raise NotImplementedError(
+            f"Store backend '{spec.store_backend_id}' is scaffolded but not implemented in runtime yet."
+        )
+    if spec.store_backend_runtime_status != "active":
+        raise NotImplementedError(
+            f"Store backend '{spec.store_backend_id}' is marked as {spec.store_backend_runtime_status}."
+        )
+    return QdrantClient(url=spec.env.qdrant_url)
 
 
-def _make_embedder(config: AppConfig) -> TextEmbedding:
-    return TextEmbedding(model_name=config.embedding.model)
-
-
-def _embed_texts(embedder: TextEmbedding, texts: Iterable[str], batch_size: int) -> list[list[float]]:
-    return [vector.tolist() for vector in embedder.embed(texts, batch_size=batch_size)]
-
-
-def _create_collection(client: QdrantClient, config: AppConfig, vector_size: int, reset: bool) -> None:
-    collection_name = config.collection_name
-    vector_params = models.VectorParams(
-        size=vector_size,
-        distance=_DISTANCE_MAP[config.retrieval.distance],
+def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SemanticChunker:
+    config = ChunkingConfig(
+        kind=spec.chunking_kind,
+        tokenizer=spec.chunk_tokenizer,
+        chunk_size=spec.chunk_size,
+        chunk_overlap=spec.chunk_overlap,
+        chunking_model_id=spec.chunking_model_id,
     )
-    if reset:
-        client.recreate_collection(collection_name=collection_name, vectors_config=vector_params)
-        return
-    if client.collection_exists(collection_name=collection_name):
-        return
-    client.create_collection(collection_name=collection_name, vectors_config=vector_params)
+    if spec.chunking_kind == "semantic":
+        return SemanticChunker(config)
+    return TokenChunker(config)
 
 
 def _build_points(chunks: list[Chunk], vectors: list[list[float]]) -> list[models.PointStruct]:
@@ -67,28 +66,96 @@ def _build_points(chunks: list[Chunk], vectors: list[list[float]]) -> list[model
     return points
 
 
-def ingest_corpus(config: AppConfig, input_path: str, reset: bool = False) -> dict[str, float | int | str]:
-    started = perf_counter()
-    documents = read_jsonl(input_path, Document)
-    if not documents:
-        raise ValueError(f"No documents found in {input_path}")
+def _create_collection(client: QdrantClient, spec: ResolvedSpec, vector_size: int, reset: bool) -> None:
+    if spec.store_index_runtime_status != "active":
+        raise NotImplementedError(
+            f"Store index variant '{spec.store_index_variant_id}' is marked as {spec.store_index_runtime_status}."
+        )
+    vector_params = models.VectorParams(
+        size=vector_size,
+        distance=_DISTANCE_MAP[spec.store_index_distance],
+    )
+    collection_name = ArtifactLayout(spec).collection_name()
+    if reset:
+        client.recreate_collection(collection_name=collection_name, vectors_config=vector_params)
+        return
+    if client.collection_exists(collection_name=collection_name):
+        return
+    client.create_collection(collection_name=collection_name, vectors_config=vector_params)
 
-    chunker = TokenChunker(config.chunking)
+
+def prepare_documents(spec: ResolvedSpec) -> tuple[list[Document], dict[str, object]]:
+    documents = read_jsonl(spec.corpus_path, Document)
+    if not documents:
+        raise ValueError(f"No documents found in {spec.corpus_path}")
+
+    layout = ArtifactLayout(spec)
+    prepared_dir = layout.prepared_dir()
+    prepared_rows = [document.model_dump(mode="json") for document in documents]
+    write_jsonl(prepared_dir / "documents.jsonl", prepared_rows)
+    write_json(prepared_dir / "resolved_spec.json", spec.model_dump(mode="json", exclude={"env"}))
+    return documents, {"prepared_dir": str(prepared_dir), "documents": len(documents)}
+
+
+def build_chunks(spec: ResolvedSpec, documents: list[Document]) -> tuple[list[Chunk], dict[str, object]]:
+    chunker = _build_chunker(spec)
     chunks = chunker.chunk_documents(documents)
     if not chunks:
         raise ValueError("Chunking produced zero chunks")
 
-    embedder = _make_embedder(config)
-    vectors = _embed_texts(embedder, [chunk.text for chunk in chunks], config.embedding.batch_size)
+    layout = ArtifactLayout(spec)
+    chunks_dir = layout.chunks_dir()
+    write_jsonl(chunks_dir / "chunks.jsonl", [chunk.model_dump(mode="json") for chunk in chunks])
+    write_json(chunks_dir / "resolved_spec.json", spec.model_dump(mode="json", exclude={"env"}))
+    return chunks, {"chunks_dir": str(chunks_dir), "chunks": len(chunks)}
 
-    client = _make_client(config)
-    _create_collection(client, config, len(vectors[0]), reset=reset)
-    client.upsert(collection_name=config.collection_name, points=_build_points(chunks, vectors), wait=True)
 
-    elapsed_ms = (perf_counter() - started) * 1000
+def ingest_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
+    started = perf_counter()
+    documents, prepared_info = prepare_documents(spec)
+    chunks, chunk_info = build_chunks(spec, documents)
+
+    vectors, embedding_tokens, embedding_cost_usd = embed_texts(
+        provider=spec.store_embedding_provider,
+        model=spec.store_embedding_model,
+        texts=[chunk.text for chunk in chunks],
+        batch_size=spec.store_embedding_batch_size,
+        env=spec.env,
+        pricing_input_per_1m_tokens_usd=spec.store_embedding_pricing_input_per_1m_tokens_usd,
+    )
+
+    if not vectors:
+        raise ValueError("Embedding produced zero vectors")
+
+    layout = ArtifactLayout(spec)
+    store_dir = layout.store_dir()
+    client = _make_client(spec)
+    collection_name = layout.collection_name()
+    _create_collection(client, spec, len(vectors[0]), reset=reset)
+    client.upsert(collection_name=collection_name, points=_build_points(chunks, vectors), wait=True)
+
+    duration_ms = round((perf_counter() - started) * 1000, 2)
+    metadata = {
+        "group_id": spec.group_id,
+        "experiment_id": spec.experiment_id,
+        "dataset_id": spec.dataset_id,
+        "load_variant_id": spec.load_variant_id,
+        "store_variant_id": spec.store_variant_id,
+        "store_backend_id": spec.store_backend_id,
+        "store_index_variant_id": spec.store_index_variant_id,
+        "store_embedding_model_id": spec.store_embedding_model_id,
+        "collection_name": collection_name,
+        "documents": prepared_info["documents"],
+        "chunks": chunk_info["chunks"],
+        "store_embedding_tokens": embedding_tokens,
+        "build_store_embedding_cost_usd": embedding_cost_usd,
+        "duration_ms": duration_ms,
+    }
+    write_json(store_dir / "resolved_spec.json", spec.model_dump(mode="json", exclude={"env"}))
+    write_json(store_dir / "metadata.json", metadata)
     return {
-        "collection": config.collection_name,
-        "documents": len(documents),
-        "chunks": len(chunks),
-        "duration_ms": round(elapsed_ms, 2),
+        **metadata,
+        "prepared_dir": prepared_info["prepared_dir"],
+        "chunks_dir": chunk_info["chunks_dir"],
+        "store_dir": str(store_dir),
     }

@@ -1,0 +1,10 @@
+[paths]
+runs_dir = "runs"
+
+[pricing]
+price_catalog_version = "openrouter-public-v1"
+
+[generation]
+default_temperature = 0.0
+default_max_tokens = 8192
+insufficient_context_response = "INSUFFICIENT_CONTEXT"

@@ -1,0 +1,19 @@
+[experiment]
+group_id = "01-rag-foundation"
+experiment_id = "load-semantic-chunking"
+
+[extends]
+load = "semantic-default"
+store = "qdrant-default"
+inference = "simple-rag"
+
+[fixed]
+preprocessing_variant_id = "prep-basic-clean-v1"
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+
+[matrix]
+chunking_model_id = [
+  "gen-llama-3.1-8b",
+  "gen-grok-4-fast",
+  "gen-minimax-2.7",
+]

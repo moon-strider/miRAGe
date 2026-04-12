@@ -1,12 +1,12 @@
-from .config import AppConfig, load_config
-from .evaluate import evaluate_dataset
-from .ingest import ingest_corpus
+from .config import ResolvedSpec, load_experiment_specs
 from .pipeline import answer_question
+from .runner import persist_resolved_specs, run_eval, run_ingest
 
 __all__ = [
-    "AppConfig",
+    "ResolvedSpec",
     "answer_question",
-    "evaluate_dataset",
-    "ingest_corpus",
-    "load_config",
+    "load_experiment_specs",
+    "persist_resolved_specs",
+    "run_eval",
+    "run_ingest",
 ]

@@ -1,0 +1,4 @@
+[fixed]
+store_backend_id = "qdrant"
+store_index_variant_id = "idx-qdrant-hnsw-cosine-default-v1"
+store_embedding_model_id = "emb-bge-small-en-v1.5"

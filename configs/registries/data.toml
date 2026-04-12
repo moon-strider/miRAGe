@@ -1,0 +1,5 @@
+[datasets.ds-docs-v1]
+corpus_path = "data/corpus/documents.jsonl"
+
+[evalsets.ev-dev-v1]
+eval_path = "data/eval/dev.jsonl"

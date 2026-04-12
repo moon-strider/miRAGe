@@ -51,3 +51,14 @@ class TokenChunker:
         for document in documents:
             output.extend(self.chunk_document(document))
         return output
+
+
+class SemanticChunker:
+    def __init__(self, config: ChunkingConfig) -> None:
+        self._config = config
+
+    def chunk_documents(self, documents: Iterable[Document]) -> list[Chunk]:
+        raise NotImplementedError(
+            "Semantic chunking is declared in the experiment scaffold but is not implemented yet. "
+            f"Requested chunking_model_id={self._config.chunking_model_id}."
+        )

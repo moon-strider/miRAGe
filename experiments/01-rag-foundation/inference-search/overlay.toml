@@ -1,0 +1,21 @@
+[experiment]
+group_id = "01-rag-foundation"
+experiment_id = "inference-search"
+
+[extends]
+load = "token-default"
+store = "qdrant-default"
+inference = "simple-rag"
+
+[fixed]
+preprocessing_variant_id = "prep-basic-clean-v1"
+chunking_model_id = "none"
+store_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+
+[matrix]
+search_algorithm_id = [
+  "search-dense-topk5-v1",
+  "search-dense-topk10-v1",
+  "search-dense-topk20-v1",
+]

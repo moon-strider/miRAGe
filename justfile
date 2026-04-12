@@ -1,8 +1,7 @@
 set shell := ["zsh", "-cu"]
 
-config := "configs/baseline.toml"
-corpus := "data/corpus/documents.jsonl"
-evalset := "data/eval/dev.jsonl"
+experiment := "experiments/01-rag-foundation/baseline-freeze"
+question := "What tool manages Python dependencies?"
 
 setup:
     uv sync --dev
@@ -13,14 +12,17 @@ up:
 down:
     docker compose down
 
-ingest:
-    uv run mirage ingest --config {{config}} --input {{corpus}} --reset
+resolve:
+    uv run mirage resolve --experiment {{experiment}}
 
-ask question:
-    uv run mirage ask --config {{config}} "{{question}}"
+ingest:
+    uv run mirage ingest --experiment {{experiment}} --reset
+
+ask:
+    uv run mirage ask --experiment {{experiment}} --set generation_model_id='"gen-llama-3.1-8b"' "{{question}}"
 
 eval:
-    uv run mirage eval --config {{config}} --input {{evalset}}
+    uv run mirage eval --experiment {{experiment}}
 
 lint:
     uv run ruff check .

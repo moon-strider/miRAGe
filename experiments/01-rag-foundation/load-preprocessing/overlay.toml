@@ -1,0 +1,19 @@
+[experiment]
+group_id = "01-rag-foundation"
+experiment_id = "load-preprocessing"
+
+[extends]
+load = "token-default"
+store = "qdrant-default"
+inference = "simple-rag"
+
+[fixed]
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+chunking_model_id = "none"
+
+[matrix]
+preprocessing_variant_id = [
+  "prep-basic-clean-v1",
+  "prep-basic-clean-dedupe-v1",
+  "prep-basic-clean-metadata-v1",
+]

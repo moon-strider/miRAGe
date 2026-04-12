@@ -1,0 +1,4 @@
+[fixed]
+preprocessing_variant_id = "prep-basic-clean-v1"
+chunking_variant_id = "chunk-token-500-50-v1"
+chunking_model_id = "none"

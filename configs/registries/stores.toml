@@ -1,0 +1,44 @@
+[store_backends.qdrant]
+kind = "qdrant"
+collection_prefix = "mirage"
+runtime_status = "active"
+
+[store_backends.faiss-local]
+kind = "faiss"
+collection_prefix = "mirage"
+runtime_status = "planned"
+
+[store_index_variants.idx-qdrant-hnsw-cosine-default-v1]
+backend_id = "qdrant"
+kind = "hnsw"
+distance = "cosine"
+runtime_status = "active"
+
+[store_index_variants.idx-qdrant-hnsw-cosine-hi-ef-v1]
+backend_id = "qdrant"
+kind = "hnsw"
+distance = "cosine"
+runtime_status = "active"
+hnsw_ef_construct = 256
+
+[store_index_variants.idx-faiss-flat-ip-v1]
+backend_id = "faiss-local"
+kind = "flat"
+distance = "dot"
+runtime_status = "planned"
+
+[store_index_variants.idx-faiss-ivfflat-v1]
+backend_id = "faiss-local"
+kind = "ivfflat"
+distance = "dot"
+runtime_status = "planned"
+nlist = 256
+
+[store_index_variants.idx-faiss-ivfpq-v1]
+backend_id = "faiss-local"
+kind = "ivfpq"
+distance = "dot"
+runtime_status = "planned"
+nlist = 256
+m = 16
+bits = 8
