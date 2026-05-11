@@ -31,14 +31,14 @@ runtime_status = "active"
 backend_id = "faiss-local"
 kind = "ivfflat"
 distance = "dot"
-runtime_status = "planned"
+runtime_status = "active"
 nlist = 256
 
 [store_index_variants.idx-faiss-ivfpq-v1]
 backend_id = "faiss-local"
 kind = "ivfpq"
 distance = "dot"
-runtime_status = "planned"
+runtime_status = "active"
 nlist = 256
 m = 16
 bits = 8

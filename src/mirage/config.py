@@ -170,6 +170,9 @@ class ResolvedSpec(BaseModel):
     store_index_kind: str
     store_index_distance: str
     store_index_runtime_status: str
+    store_index_nlist: int | None = None
+    store_index_m: int | None = None
+    store_index_bits: int | None = None
     store_embedding_model_id: str
     store_embedding_provider: str
     store_embedding_model: str
@@ -360,6 +363,9 @@ def _build_resolved_spec(
         store_index_kind=store_index.kind,
         store_index_distance=store_index.distance,
         store_index_runtime_status=store_index.runtime_status,
+        store_index_nlist=getattr(store_index, "nlist", None),
+        store_index_m=getattr(store_index, "m", None),
+        store_index_bits=getattr(store_index, "bits", None),
         store_embedding_model_id=values["store_embedding_model_id"],
         store_embedding_provider=store_embedding.provider,
         store_embedding_model=store_embedding.model,

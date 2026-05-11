@@ -16,4 +16,4 @@ Only cases whose backend runtime status is implemented can be executed.
 ## Runtime status
 
 `qdrant` is active.
-`faiss-local` is active for flat inner-product runtime and can be executed.
+`faiss-local` is active for flat, ivfflat, and ivfpq runtime and can be executed through paired cases.

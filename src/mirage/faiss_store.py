@@ -14,7 +14,14 @@ def _normalize_rows(matrix: np.ndarray) -> np.ndarray:
     return matrix / norms
 
 
-def build_faiss_index(index_kind: str, vectors: list[list[float]]) -> faiss.Index:
+def build_faiss_index(
+    index_kind: str,
+    vectors: list[list[float]],
+    *,
+    nlist: int | None = None,
+    m: int | None = None,
+    bits: int | None = None,
+) -> faiss.Index:
     if not vectors:
         raise ValueError("Cannot build a FAISS index without vectors")
     matrix = np.asarray(vectors, dtype="float32")
@@ -23,6 +30,24 @@ def build_faiss_index(index_kind: str, vectors: list[list[float]]) -> faiss.Inde
     if index_kind == "flat":
         index = faiss.IndexFlatIP(dimension)
         index.add(normalized)
+        return index
+    if index_kind == "ivfflat":
+        if not nlist:
+            raise ValueError("FAISS ivfflat requires nlist")
+        quantizer = faiss.IndexFlatIP(dimension)
+        index = faiss.IndexIVFFlat(quantizer, dimension, nlist, faiss.METRIC_INNER_PRODUCT)
+        index.train(normalized)
+        index.add(normalized)
+        index.nprobe = min(nlist, 8)
+        return index
+    if index_kind == "ivfpq":
+        if not nlist or not m or not bits:
+            raise ValueError("FAISS ivfpq requires nlist, m, and bits")
+        quantizer = faiss.IndexFlatIP(dimension)
+        index = faiss.IndexIVFPQ(quantizer, dimension, nlist, m, bits, faiss.METRIC_INNER_PRODUCT)
+        index.train(normalized)
+        index.add(normalized)
+        index.nprobe = min(nlist, 8)
         return index
     raise NotImplementedError(f"Unsupported FAISS index kind: {index_kind}")
 

@@ -121,6 +121,32 @@ def test_store_backend_experiment_includes_faiss_runtime() -> None:
     assert {spec.store_backend_runtime_status for spec in specs} == {"active"}
 
 
+def test_faiss_index_variants_expose_runtime_knobs() -> None:
+    ivfflat = load_experiment_specs(
+        "experiments/01-rag-foundation/store-backends",
+        overrides={
+            "generation_model_id": "gen-llama-3.1-8b",
+            "store_backend_id": "faiss-local",
+            "store_index_variant_id": "idx-faiss-ivfflat-v1",
+        },
+    )[0]
+    ivfpq = load_experiment_specs(
+        "experiments/01-rag-foundation/store-backends",
+        overrides={
+            "generation_model_id": "gen-llama-3.1-8b",
+            "store_backend_id": "faiss-local",
+            "store_index_variant_id": "idx-faiss-ivfpq-v1",
+        },
+    )[0]
+
+    assert ivfflat.store_index_runtime_status == "active"
+    assert ivfflat.store_index_nlist == 256
+    assert ivfpq.store_index_runtime_status == "active"
+    assert ivfpq.store_index_nlist == 256
+    assert ivfpq.store_index_m == 16
+    assert ivfpq.store_index_bits == 8
+
+
 def test_store_index_experiment_keeps_active_qdrant_variants() -> None:
     specs = load_experiment_specs(
         "experiments/01-rag-foundation/store-index-variants",

@@ -48,6 +48,49 @@ def test_build_and_search_faiss_flat_index(tmp_path) -> None:
     assert restored_results[0].chunk_id == "doc-002::chunk-0000"
 
 
+def test_build_and_search_faiss_ivfflat_index(tmp_path) -> None:
+    chunks = [
+        _chunk(f"doc-{idx:03d}::chunk-0000", f"topic {idx}")
+        for idx in range(16)
+    ]
+    vectors = [[1.0, 0.0] if idx < 8 else [0.0, 1.0] for idx in range(16)]
+    index = build_faiss_index("ivfflat", vectors, nlist=2)
+
+    results = search_faiss_index(index=index, query_vector=[0.95, 0.05], items=chunks, top_k=4)
+
+    assert len(results) == 4
+    assert all(item.doc_id.startswith("doc-00") for item in results)
+
+    path = tmp_path / "ivfflat.faiss"
+    save_faiss_index(index, path)
+    restored = load_faiss_index(path)
+    restored_results = search_faiss_index(index=restored, query_vector=[0.05, 0.95], items=chunks, top_k=4)
+    assert len(restored_results) == 4
+
+
+def test_build_and_search_faiss_ivfpq_index(tmp_path) -> None:
+    chunks = [
+        _chunk(f"doc-{idx:03d}::chunk-0000", f"topic {idx}")
+        for idx in range(32)
+    ]
+    vectors = []
+    for idx in range(32):
+        if idx < 16:
+            vectors.append([1.0, 0.0, 0.0, 0.0])
+        else:
+            vectors.append([0.0, 1.0, 0.0, 0.0])
+    index = build_faiss_index("ivfpq", vectors, nlist=2, m=2, bits=4)
+
+    results = search_faiss_index(index=index, query_vector=[0.0, 1.0, 0.0, 0.0], items=chunks, top_k=5)
+
+    assert len(results) == 5
+    path = tmp_path / "ivfpq.faiss"
+    save_faiss_index(index, path)
+    restored = load_faiss_index(path)
+    restored_results = search_faiss_index(index=restored, query_vector=[1.0, 0.0, 0.0, 0.0], items=chunks, top_k=5)
+    assert len(restored_results) == 5
+
+
 def test_faiss_results_can_be_reranked(monkeypatch) -> None:
     chunks = [
         _chunk("doc-001::chunk-0000", "apples"),

@@ -9,6 +9,11 @@ embedding model fixed.
 
 ## Fixed variables
 
-- store backend: `qdrant`
+- store backend: `qdrant` for the qdrant-only comparison
 - store embedding: `emb-bge-small-en-v1.5`
 - query embedding: `emb-bge-small-en-v1.5`
+
+## Runtime status
+
+- qdrant HNSW default and high-ef are executable
+- faiss flat, ivfflat, and ivfpq are executable through the paired backend experiment

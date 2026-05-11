@@ -109,7 +109,13 @@ def _store_faiss_index(
     index_path = _faiss_index_path(spec)
     if index_path.exists() and not reset:
         return
-    index = build_faiss_index(spec.store_index_kind, vectors)
+    index = build_faiss_index(
+        spec.store_index_kind,
+        vectors,
+        nlist=getattr(spec, "store_index_nlist", None),
+        m=getattr(spec, "store_index_m", None),
+        bits=getattr(spec, "store_index_bits", None),
+    )
     save_faiss_index(index, index_path)
 
 
