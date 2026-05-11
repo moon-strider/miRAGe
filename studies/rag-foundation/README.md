@@ -27,3 +27,25 @@ Controlled baseline and retrieval-only RAG experiments.
 - `sparse-bm25` is worse than dense retrieval on SciFact.
 - `hybrid-rrf` improves over baseline but loses to dense top-k10/top-k20.
 - `faiss-flat` matches Qdrant quality, so Qdrant HNSW is not a quality confounder here.
+
+## Wave 2 embedding-model results
+
+All rows use the same full SciFact split, Qdrant HNSW cosine store, token 1024/128 chunks, and `search-dense-topk5-v1` so the isolated variable is the embedding model.
+
+| embedding model | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | p50 ms | p95 ms | projected 1m query cost |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| text-embedding-3-small | 0.8000 | 0.1727 | 0.7771 | 0.6736 | 0.6912 | 846.58 | 1261.62 | 0.23 |
+| text-embedding-3-large | 0.8433 | 0.1847 | 0.8292 | 0.7173 | 0.7390 | 938.26 | 1419.79 | 2.58 |
+| text-embedding-ada-002 | 0.7733 | 0.1693 | 0.7598 | 0.6657 | 0.6838 | 834.32 | 1225.73 | 2.01 |
+| pplx-embed-v1-0.6b | 0.7967 | 0.1767 | 0.7841 | 0.6789 | 0.7010 | 887.52 | 1321.75 | 0.00 |
+| pplx-embed-v1-4b | 0.8400 | 0.1865 | 0.8289 | 0.7112 | 0.7351 | 821.12 | 1234.36 | 0.60 |
+| gemini-embedding-001 | 0.9567 | 0.2147 | 0.9509 | 0.8688 | 0.8869 | 977.78 | 1181.49 | 3.52 |
+
+## Wave 2 interpretation
+
+- `gemini-embedding-001` is the clear winner among completed embedding experiments.
+- Compared with `text-embedding-3-small`, Gemini improves Recall@k from 0.7771 to 0.9509 and NDCG@k from 0.6912 to 0.8869.
+- `text-embedding-3-large` and `pplx-embed-v1-4b` are close; `pplx-4b` has slightly lower NDCG but better p50/p95 latency and lower projected query cost.
+- `text-embedding-ada-002` is worse than the current baseline and should not be used for the next retrieval sweeps.
+- `mistral-embed-2312` was attempted after Gemini but produced no artifact after a long OpenRouter run; keep it out of the decision path unless its provider stability improves.
+- Next controlled step: use `gemini-embedding-001` as the embedding baseline and run a chunking sweep while keeping store, index, search, and dataset fixed.
