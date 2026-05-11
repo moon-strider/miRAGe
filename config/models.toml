@@ -43,13 +43,13 @@ pricing_input_per_1m_tokens_usd = 0.10
 [embedding_models."emb-qwen3-embedding-4b"]
 provider = "openrouter"
 model = "qwen/qwen3-embedding-4b"
-batch_size = 4
+batch_size = 16
 pricing_input_per_1m_tokens_usd = 0.02
 
 [embedding_models."emb-qwen3-embedding-8b"]
 provider = "openrouter"
 model = "qwen/qwen3-embedding-8b"
-batch_size = 4
+batch_size = 16
 pricing_input_per_1m_tokens_usd = 0.01
 
 [embedding_models."emb-mistral-embed-2312"]
