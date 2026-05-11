@@ -18,7 +18,7 @@ def _safe_segment(value: str) -> str:
 class ArtifactLayout:
     def __init__(self, spec: ResolvedSpec) -> None:
         self.spec = spec
-        self.root = PROJECT_ROOT / spec.runs_dir
+        self.root = PROJECT_ROOT / spec.artifacts_dir
 
     def prepared_dir(self) -> Path:
         return self.root / "prepared" / self.spec.dataset_id / self.spec.preprocessing_variant_id

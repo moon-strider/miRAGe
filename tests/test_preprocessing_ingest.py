@@ -15,12 +15,12 @@ def test_prepare_documents_applies_dedupe_preprocessing(monkeypatch, tmp_path: P
     ]
 
     spec = load_experiment_specs(
-        "experiments/01-rag-foundation/load-preprocessing",
+        "studies/rag-foundation",
         overrides={
             "generation_model_id": "gen-llama-3.1-8b",
             "preprocessing_variant_id": "prep-basic-clean-dedupe-v1",
         },
-    )[0].model_copy(update={"runs_dir": str(tmp_path / "runs")})
+    )[0].model_copy(update={"artifacts_dir": str(tmp_path / "artifacts")})
 
     monkeypatch.setattr("mirage.ingest.load_documents_for_spec", lambda runtime_spec: source_documents)
 
@@ -42,12 +42,12 @@ def test_prepare_documents_applies_metadata_preprocessing(monkeypatch, tmp_path:
     ]
 
     spec = load_experiment_specs(
-        "experiments/01-rag-foundation/load-preprocessing",
+        "studies/rag-foundation",
         overrides={
             "generation_model_id": "gen-llama-3.1-8b",
             "preprocessing_variant_id": "prep-basic-clean-metadata-v1",
         },
-    )[0].model_copy(update={"runs_dir": str(tmp_path / "runs")})
+    )[0].model_copy(update={"artifacts_dir": str(tmp_path / "artifacts")})
 
     monkeypatch.setattr("mirage.ingest.load_documents_for_spec", lambda runtime_spec: source_documents)
 

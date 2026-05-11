@@ -29,7 +29,7 @@ class EnvironmentSettings(BaseSettings):
 
 
 class SystemPaths(BaseModel):
-    runs_dir: str = "runs"
+    artifacts_dir: str = "artifacts"
 
 
 class PricingConfig(BaseModel):
@@ -209,7 +209,7 @@ class ResolvedSpec(BaseModel):
     generation_pricing_output_per_1m_tokens_usd: float
     insufficient_context_response: str
     price_catalog_version: str
-    runs_dir: str
+    artifacts_dir: str
     dataset_adapter_id: str
     dataset_root: str | None = None
     eval_adapter_id: str
@@ -224,27 +224,13 @@ class ResolvedSpec(BaseModel):
 
 
 def _load_system_config() -> SystemConfig:
-    raw = load_toml_file(PROJECT_ROOT / "configs" / "system.toml")
+    raw = load_toml_file(PROJECT_ROOT / "config" / "defaults.toml")
     return SystemConfig.model_validate(raw)
 
 
 def _load_registry_bundle() -> RegistryBundle:
-    raw = load_toml_dir(PROJECT_ROOT / "configs" / "registries")
+    raw = load_toml_dir(PROJECT_ROOT / "config")
     return RegistryBundle.model_validate(raw)
-
-
-def _load_prototype(family: str, prototype_id: str) -> dict[str, Any]:
-    prototype_path = PROJECT_ROOT / "configs" / "prototypes" / family / f"{prototype_id}.toml"
-    return load_toml_file(prototype_path)
-
-
-def _load_experiment_files(experiment_path: str | Path) -> tuple[dict[str, Any], dict[str, Any], Path]:
-    path = Path(experiment_path)
-    experiment_dir = path if path.is_dir() else path.parent
-    group_dir = experiment_dir.parent
-    group_data = load_toml_file(group_dir / "group.toml")
-    overlay_data = load_toml_file(experiment_dir / "overlay.toml")
-    return group_data, overlay_data, experiment_dir
 
 
 def _materialize_matrix(matrix: dict[str, list[Any]]) -> list[dict[str, Any]]:
@@ -411,7 +397,7 @@ def _build_resolved_spec(
         ),
         insufficient_context_response=insufficient_context_response,
         price_catalog_version=system.pricing.price_catalog_version,
-        runs_dir=system.paths.runs_dir,
+        artifacts_dir=system.paths.artifacts_dir,
         dataset_adapter_id=dataset.adapter_id,
         dataset_root=dataset.dataset_root,
         eval_adapter_id=evalset.adapter_id,
@@ -426,44 +412,59 @@ def _build_resolved_spec(
     )
 
 
-def load_experiment_specs(
+def _study_dir(experiment_path: str | Path) -> Path:
+    path = PROJECT_ROOT / Path(experiment_path)
+    if path.is_file():
+        return path.parent
+    return path
+
+
+def _study_fixed(raw: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in raw.items() if key not in {"id", "matrix", "cases"}}
+
+
+def _selected_study_experiment(raw: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any] | None:
+    selected_id = overrides.pop("study_experiment_id", None)
+    if selected_id is None or selected_id == "baseline":
+        return None
+    for experiment in raw.get("experiments", []):
+        if experiment.get("id") == selected_id:
+            return experiment
+    raise ValueError(f"Unknown study_experiment_id: {selected_id}")
+
+
+def _load_study_specs(
     experiment_path: str | Path,
     *,
-    overrides: dict[str, Any] | None = None,
+    system: SystemConfig,
+    registries: RegistryBundle,
+    overrides: dict[str, Any],
 ) -> list[ResolvedSpec]:
-    system = _load_system_config()
-    registries = _load_registry_bundle()
-    group_data, overlay_data, _ = _load_experiment_files(experiment_path)
-
-    combined = deep_merge(group_data, overlay_data)
-    experiment_meta = combined.get("experiment", {})
-    extends = combined.get("extends", {})
-
-    fixed: dict[str, Any] = {}
-    for family in ("load", "store", "inference"):
-        prototype_id = extends.get(family)
-        if prototype_id:
-            fixed = deep_merge(fixed, _load_prototype(family, prototype_id).get("fixed", {}))
-
-    fixed = deep_merge(fixed, group_data.get("fixed", {}))
-    fixed = deep_merge(fixed, overlay_data.get("fixed", {}))
-
-    matrix = deep_merge(group_data.get("matrix", {}), overlay_data.get("matrix", {}))
-    points = _materialize_matrix(matrix)
-    raw_cases = overlay_data.get("cases") or group_data.get("cases")
-    cases = _materialize_cases(raw_cases)
+    raw = load_toml_file(_study_dir(experiment_path) / "study.toml")
+    study = raw["study"]
+    baseline = raw["baseline"]
+    selected = _selected_study_experiment(raw, overrides)
+    fixed = _study_fixed(baseline)
+    matrix = baseline.get("matrix", {})
+    cases = baseline.get("cases")
+    experiment_id = baseline.get("id", "baseline")
+    if selected is not None:
+        fixed = deep_merge(fixed, _study_fixed(selected))
+        matrix = deep_merge(matrix, selected.get("matrix", {}))
+        cases = selected.get("cases") or cases
+        experiment_id = selected["id"]
     specs: list[ResolvedSpec] = []
     seen_keys: set[str] = set()
-    for point in points:
-        for case in cases:
+    for point in _materialize_matrix(matrix):
+        for case in _materialize_cases(cases):
             values = deep_merge(fixed, point)
             values = deep_merge(values, case)
-            values = deep_merge(values, overrides or {})
+            values = deep_merge(values, overrides)
             spec = _build_resolved_spec(
                 system=system,
                 registries=registries,
-                group_id=experiment_meta["group_id"],
-                experiment_id=experiment_meta["experiment_id"],
+                group_id=study["id"],
+                experiment_id=experiment_id,
                 values=values,
             )
             spec_key = spec.model_dump_json(exclude={"env"}, round_trip=True)
@@ -472,3 +473,22 @@ def load_experiment_specs(
             seen_keys.add(spec_key)
             specs.append(spec)
     return specs
+
+
+def load_experiment_specs(
+    experiment_path: str | Path,
+    *,
+    overrides: dict[str, Any] | None = None,
+) -> list[ResolvedSpec]:
+    system = _load_system_config()
+    registries = _load_registry_bundle()
+    parsed_overrides = dict(overrides or {})
+    study_dir = _study_dir(experiment_path)
+    if (study_dir / "study.toml").exists():
+        return _load_study_specs(
+            experiment_path,
+            system=system,
+            registries=registries,
+            overrides=parsed_overrides,
+        )
+    raise ValueError(f"Study file not found under: {study_dir}")

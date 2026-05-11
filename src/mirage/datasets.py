@@ -12,7 +12,7 @@ from typing import Any
 
 from mirage.registry import PROJECT_ROOT
 
-DATASETS_ROOT = PROJECT_ROOT / "data" / "datasets"
+DATASETS_ROOT = PROJECT_ROOT / "datasets"
 _ARCHIVE_URL_KEYS = ("archive", "train_dev_archive", "test_archive")
 
 

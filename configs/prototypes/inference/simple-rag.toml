@@ -1,8 +1,0 @@
-[fixed]
-query_embedding_model_id = "emb-text-embedding-3-small"
-search_algorithm_id = "search-dense-topk5-v1"
-reranker_id = "none"
-prompt_variant_id = "prompt-grounded-citations-v1"
-tool_policy_id = "none"
-generation_temperature = 0.0
-generation_max_tokens = 350

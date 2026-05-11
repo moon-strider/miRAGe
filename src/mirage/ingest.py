@@ -11,7 +11,7 @@ from mirage.artifacts import ArtifactLayout
 from mirage.chunking import SemanticChunker, SentenceChunker, TokenChunker
 from mirage.config import ChunkingConfig, ResolvedSpec
 from mirage.embeddings import embed_texts
-from mirage.faiss_store import build_faiss_index, load_faiss_index, save_faiss_index
+from mirage.faiss_store import build_faiss_index, save_faiss_index
 from mirage.io_utils import read_json, read_jsonl, write_json, write_jsonl
 from mirage.pipeline import _semantic_sentence_embedder
 from mirage.preprocessing import apply_preprocessing

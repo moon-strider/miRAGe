@@ -29,7 +29,7 @@ class _CapturingClient:
 
 def test_evidence_first_prompt_includes_evidence_instruction(monkeypatch) -> None:
     spec = load_experiment_specs(
-        "experiments/01-rag-foundation/inference-prompting",
+        "studies/rag-foundation",
         overrides={
             "generation_model_id": "gen-llama-3.1-8b",
             "prompt_variant_id": "prompt-evidence-first-v1",
@@ -73,7 +73,7 @@ def test_evidence_first_prompt_includes_evidence_instruction(monkeypatch) -> Non
 
 def test_strict_abstain_prompt_keeps_exact_abstention_rule(monkeypatch) -> None:
     spec = load_experiment_specs(
-        "experiments/01-rag-foundation/inference-prompting",
+        "studies/rag-foundation",
         overrides={
             "generation_model_id": "gen-llama-3.1-8b",
             "prompt_variant_id": "prompt-strict-abstain-v1",

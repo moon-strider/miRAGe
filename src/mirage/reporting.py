@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -13,18 +12,24 @@ from mirage.registry import PROJECT_ROOT
 
 _PRIMARY_AXIS_BY_EXPERIMENT = {
     "load-deterministic-chunking": "chunking_variant_id",
-    "load-semantic-chunking": "chunking_model_id",
+    "semantic-chunking": "chunking_model_id",
     "store-embedding-models": "store_embedding_model_id",
     "store-index-variants": "store_index_variant_id",
     "store-backends": "store_backend_id",
     "inference-search": "search_algorithm_id",
     "inference-prompting": "prompt_variant_id",
     "inference-agentic": "tool_policy_id",
+    "dense-topk3": "search_algorithm_id",
+    "dense-topk10": "search_algorithm_id",
+    "dense-topk20": "search_algorithm_id",
+    "sparse-bm25": "search_algorithm_id",
+    "hybrid-rrf": "search_algorithm_id",
+    "faiss-flat": "store_backend_id",
 }
 
 _DEFAULT_BASELINE_BY_EXPERIMENT = {
     "load-deterministic-chunking": "chunk-token-1024-128-v1",
-    "load-semantic-chunking": None,
+    "semantic-chunking": None,
     "store-embedding-models": "emb-bge-small-en-v1.5",
     "store-index-variants": "idx-qdrant-hnsw-cosine-default-v1",
     "store-backends": "qdrant",
@@ -73,7 +78,7 @@ def _group_specs_by_axis(specs: list[ResolvedSpec], axis_field: str) -> dict[str
 
 def _artifact_rows(baseline: ResolvedSpec, candidate: ResolvedSpec | None, experiment_id: str) -> list[tuple[str, str, str, str]]:
     axis_field = _PRIMARY_AXIS_BY_EXPERIMENT.get(experiment_id)
-    if experiment_id == "baseline-freeze" or candidate is None or axis_field is None:
+    if experiment_id == "baseline" or candidate is None or axis_field is None:
         layout = ArtifactLayout(baseline)
         return [
             ("prepared", str(layout.prepared_dir()), "rebuilt", "baseline freeze materialized this layer"),
@@ -296,10 +301,10 @@ def _conclusion(baseline_specs: list[ResolvedSpec], candidate_specs: list[Resolv
     if candidate_specs is None:
         return "This report freezes the baseline and records its measured metrics across the pinned generation models."
     if candidate_mean > baseline_mean:
-        return f"{candidate_id} improved exact-match performance over the named baseline on the saved runs, with the full tradeoff visible in the metrics and cost tables above."
+        return f"{candidate_id} improved exact-match performance over the named baseline on the saved artifacts, with the full tradeoff visible in the metrics and cost tables above."
     if candidate_mean < baseline_mean:
-        return f"{candidate_id} underperformed the named baseline on exact-match performance in the saved runs, despite any tradeoffs visible in latency or cost."
-    return f"{candidate_id} matched the baseline on mean exact-match performance in the saved runs, so the decision depends on latency and cost tradeoffs."
+        return f"{candidate_id} underperformed the named baseline on exact-match performance in the saved artifacts, despite any tradeoffs visible in latency or cost."
+    return f"{candidate_id} matched the baseline on mean exact-match performance in the saved artifacts, so the decision depends on latency and cost tradeoffs."
 
 
 def _write_report(
@@ -344,20 +349,21 @@ def synthesize_reports(
 ) -> list[Path]:
     if not specs:
         return []
-    root = reports_root or (PROJECT_ROOT / "reports")
+    root = reports_root or (PROJECT_ROOT / "artifacts" / "summaries")
     experiment_id = specs[0].experiment_id
-    if experiment_id == "baseline-freeze":
-        return [_write_report(root, sorted(specs, key=lambda item: item.generation_model_id), None, "baseline-freeze", "baseline-freeze")]
-    if experiment_id.startswith("wave1-"):
+    if experiment_id == "baseline":
+        ordered = sorted(specs, key=lambda item: item.generation_model_id)
+        return [_write_report(root, ordered, None, "baseline", "baseline")]
+    if baseline_id == "baseline":
         baseline_specs = sorted(
             load_experiment_specs(
-                Path("experiments") / "01-rag-foundation" / "baseline-freeze",
+                Path("studies") / "rag-foundation",
                 overrides={"dataset_id": specs[0].dataset_id, "evalset_id": specs[0].evalset_id},
             ),
             key=lambda item: item.generation_model_id,
         )
         candidate_specs = sorted(specs, key=lambda item: item.generation_model_id)
-        return [_write_report(root, baseline_specs, candidate_specs, baseline_id or "baseline-freeze", experiment_id)]
+        return [_write_report(root, baseline_specs, candidate_specs, "baseline", experiment_id)]
     axis_field = _PRIMARY_AXIS_BY_EXPERIMENT.get(experiment_id)
     if axis_field is None:
         return []

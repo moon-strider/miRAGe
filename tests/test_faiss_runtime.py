@@ -8,13 +8,13 @@ from mirage.schemas import Document
 
 def test_faiss_ivfflat_ingest_and_retrieve(monkeypatch, tmp_path) -> None:
     spec = load_experiment_specs(
-        "experiments/01-rag-foundation/store-backends",
+        "studies/rag-foundation",
         overrides={
             "generation_model_id": "gen-llama-3.1-8b",
             "store_backend_id": "faiss-local",
             "store_index_variant_id": "idx-faiss-ivfflat-v1",
         },
-    )[0].model_copy(update={"runs_dir": str(tmp_path / "runs"), "store_index_nlist": 2})
+    )[0].model_copy(update={"artifacts_dir": str(tmp_path / "artifacts"), "store_index_nlist": 2})
 
     documents = [
         Document(doc_id="doc-001", title="Alpha", source="seed://test", text="apple orchard evidence"),
@@ -49,14 +49,14 @@ def test_faiss_ivfflat_ingest_and_retrieve(monkeypatch, tmp_path) -> None:
 
 def test_faiss_ivfpq_ingest_and_retrieve(monkeypatch, tmp_path) -> None:
     spec = load_experiment_specs(
-        "experiments/01-rag-foundation/store-backends",
+        "studies/rag-foundation",
         overrides={
             "generation_model_id": "gen-llama-3.1-8b",
             "store_backend_id": "faiss-local",
             "store_index_variant_id": "idx-faiss-ivfpq-v1",
         },
     )[0].model_copy(
-        update={"runs_dir": str(tmp_path / "runs"), "store_index_nlist": 2, "store_index_m": 2, "store_index_bits": 4}
+        update={"artifacts_dir": str(tmp_path / "artifacts"), "store_index_nlist": 2, "store_index_m": 2, "store_index_bits": 4}
     )
 
     documents = [

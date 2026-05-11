@@ -125,11 +125,11 @@ def _write_eval_artifacts(spec, value: float) -> None:
 
 
 def test_synthesize_reports_writes_baseline_freeze_report(artifact_root: Path) -> None:
-    specs = load_experiment_specs("experiments/01-rag-foundation/baseline-freeze")
+    specs = load_experiment_specs("studies/rag-foundation")
     for spec in specs:
         _write_eval_artifacts(spec, 0.8)
 
-    report_paths = synthesize_reports(specs, reports_root=artifact_root / "reports")
+    report_paths = synthesize_reports(specs, reports_root=artifact_root / "study-reports")
 
     assert len(report_paths) == 1
     content = report_paths[0].read_text(encoding="utf-8")
@@ -143,7 +143,10 @@ def test_synthesize_reports_writes_baseline_freeze_report(artifact_root: Path) -
 
 
 def test_synthesize_reports_writes_candidate_reports_for_variant_groups(artifact_root: Path) -> None:
-    specs = load_experiment_specs("experiments/01-rag-foundation/store-embedding-models")
+    specs = load_experiment_specs(
+        "studies/rag-foundation",
+        overrides={"study_experiment_id": "store-embedding-models"},
+    )
     values = {
         "emb-bge-small-en-v1.5": 0.5,
         "emb-text-embedding-3-small": 0.7,
@@ -154,7 +157,7 @@ def test_synthesize_reports_writes_candidate_reports_for_variant_groups(artifact
 
     report_paths = synthesize_reports(
         specs,
-        reports_root=artifact_root / "reports",
+        reports_root=artifact_root / "study-reports",
         baseline_id="emb-bge-small-en-v1.5",
     )
 
@@ -166,8 +169,11 @@ def test_synthesize_reports_writes_candidate_reports_for_variant_groups(artifact
 
 
 def test_synthesize_reports_writes_wave1_report_against_frozen_baseline(artifact_root: Path) -> None:
-    baseline_specs = load_experiment_specs("experiments/01-rag-foundation/baseline-freeze")
-    candidate_specs = load_experiment_specs("experiments/01-rag-foundation/wave1-dense-topk10")
+    baseline_specs = load_experiment_specs("studies/rag-foundation")
+    candidate_specs = load_experiment_specs(
+        "studies/rag-foundation",
+        overrides={"study_experiment_id": "dense-topk10"},
+    )
     for spec in baseline_specs:
         _write_eval_artifacts(spec, 0.6)
     for spec in candidate_specs:
@@ -175,22 +181,25 @@ def test_synthesize_reports_writes_wave1_report_against_frozen_baseline(artifact
 
     report_paths = synthesize_reports(
         candidate_specs,
-        reports_root=artifact_root / "reports",
-        baseline_id="baseline-freeze",
+        reports_root=artifact_root / "study-reports",
+        baseline_id="baseline",
     )
 
     assert len(report_paths) == 1
     content = report_paths[0].read_text(encoding="utf-8")
-    assert "baseline_id: baseline-freeze" in content
-    assert "candidate_id: wave1-dense-topk10" in content
+    assert "baseline_id: baseline" in content
+    assert "candidate_id: dense-topk10" in content
     assert "search-dense-topk5-v1" in content
     assert "search-dense-topk10-v1" in content
 
 
 def test_synthesize_wave1_report_uses_candidate_dataset_for_baseline(artifact_root: Path) -> None:
     overrides = {"dataset_id": "ds-beir-scifact-v1", "evalset_id": "ev-beir-scifact-v1"}
-    baseline_specs = load_experiment_specs("experiments/01-rag-foundation/baseline-freeze", overrides=overrides)
-    candidate_specs = load_experiment_specs("experiments/01-rag-foundation/wave1-dense-topk10", overrides=overrides)
+    baseline_specs = load_experiment_specs("studies/rag-foundation", overrides=overrides)
+    candidate_specs = load_experiment_specs(
+        "studies/rag-foundation",
+        overrides={**overrides, "study_experiment_id": "dense-topk10"},
+    )
     for spec in baseline_specs:
         _write_eval_artifacts(spec, 0.6)
     for spec in candidate_specs:
@@ -198,8 +207,8 @@ def test_synthesize_wave1_report_uses_candidate_dataset_for_baseline(artifact_ro
 
     report_paths = synthesize_reports(
         candidate_specs,
-        reports_root=artifact_root / "reports",
-        baseline_id="baseline-freeze",
+        reports_root=artifact_root / "study-reports",
+        baseline_id="baseline",
     )
 
     content = report_paths[0].read_text(encoding="utf-8")

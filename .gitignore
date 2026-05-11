@@ -6,8 +6,8 @@
 __pycache__/
 *.pyc
 .DS_Store
-runs/
+artifacts/
 .hermes/
 PLAN.md
-data/datasets/*/raw/
-data/datasets/*/downloads/
+datasets/*/raw/
+datasets/*/downloads/

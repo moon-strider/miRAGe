@@ -32,7 +32,7 @@ class _FakeClient:
 
 
 def test_context_expansion_policy_merges_followup_retrieval(monkeypatch) -> None:
-    spec = load_experiment_specs("experiments/01-rag-foundation/baseline-freeze")[0].model_copy(
+    spec = load_experiment_specs("studies/rag-foundation")[0].model_copy(
         update={"tool_policy_id": "tool-context-expansion-v1"}
     )
     calls: list[tuple[int, str]] = []
@@ -70,7 +70,7 @@ def test_context_expansion_policy_merges_followup_retrieval(monkeypatch) -> None
 
 
 def test_react_policy_rewrites_followup_query(monkeypatch) -> None:
-    spec = load_experiment_specs("experiments/01-rag-foundation/baseline-freeze")[0].model_copy(
+    spec = load_experiment_specs("studies/rag-foundation")[0].model_copy(
         update={"tool_policy_id": "tool-react-v1"}
     )
     questions: list[str] = []

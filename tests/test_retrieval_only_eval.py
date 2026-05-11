@@ -42,7 +42,7 @@ def test_evaluate_retrieval_spec_writes_metrics_without_generation(tmp_path: Pat
         return retrieval, [item]
 
     monkeypatch.setattr("mirage.evaluate._apply_tool_policy", fake_policy)
-    spec = load_experiment_specs("experiments/01-rag-foundation/baseline-freeze")[0]
+    spec = load_experiment_specs("studies/rag-foundation")[0]
 
     result = evaluate_retrieval_spec(spec)
 
@@ -64,7 +64,7 @@ def test_run_retrieval_eval_deduplicates_generation_variants(monkeypatch: pytest
 
     monkeypatch.setattr("mirage.runner.evaluate_retrieval_spec", fake_evaluate)
 
-    result = run_retrieval_eval(Path("experiments/01-rag-foundation/baseline-freeze"))
+    result = run_retrieval_eval(Path("studies/rag-foundation"))
 
     assert result["resolved_specs"] == 3
     assert result["evaluated_retrieval_specs"] == 1
