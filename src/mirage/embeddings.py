@@ -24,7 +24,7 @@ def estimate_token_count(texts: Iterable[str]) -> int:
 def _make_openrouter_client(env: EnvironmentSettings) -> OpenAI:
     if not env.openrouter_api_key:
         raise RuntimeError("OPENROUTER_API_KEY is required for remote embedding or generation")
-    http_client = httpx.Client(follow_redirects=True)
+    http_client = httpx.Client(follow_redirects=True, timeout=httpx.Timeout(60.0, connect=10.0))
     return OpenAI(api_key=env.openrouter_api_key, base_url=env.openrouter_base_url, http_client=http_client)
 
 
@@ -43,7 +43,14 @@ def _extract_error_code(response: object) -> int | None:
 def _create_embeddings_with_retries(client: OpenAI, *, model: str, batch: list[str], max_attempts: int = 6) -> object:
     last_error: object = None
     for attempt in range(max_attempts):
-        response = client.embeddings.create(model=model, input=batch)
+        try:
+            response = client.embeddings.create(model=model, input=batch)
+        except Exception as exc:
+            last_error = exc
+            if attempt == max_attempts - 1:
+                raise RuntimeError(f"Embedding request failed for {model}: {last_error}") from exc
+            sleep(min(2**attempt, 30))
+            continue
         data = getattr(response, "data", None)
         if data is not None:
             return response
