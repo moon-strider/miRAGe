@@ -4,7 +4,7 @@ from pathlib import Path
 
 from mirage.artifacts import ArtifactLayout
 from mirage.config import ResolvedSpec, load_experiment_specs
-from mirage.evaluate import evaluate_spec
+from mirage.evaluate import evaluate_retrieval_spec, evaluate_spec
 from mirage.ingest import ingest_spec
 from mirage.io_utils import write_json
 from mirage.registry import parse_cli_overrides
@@ -36,6 +36,40 @@ def run_ingest(
         "resolved_specs": len(specs),
         "built_store_variants": len(artifacts),
         "artifacts": artifacts,
+    }
+
+
+def run_retrieval_eval(
+    experiment_path: str | Path,
+    *,
+    overrides: list[str] | None = None,
+    reset: bool = False,
+) -> dict[str, object]:
+    specs = resolve_specs(experiment_path, overrides)
+    results: list[dict[str, object]] = []
+    seen_store_keys: set[tuple[str, str]] = set()
+    seen_retrieval_keys: set[tuple[str, str, str, str, str]] = set()
+    for spec in specs:
+        store_key = (spec.load_variant_id, spec.store_variant_id)
+        if store_key not in seen_store_keys:
+            ingest_spec(spec, reset=reset)
+            seen_store_keys.add(store_key)
+        retrieval_key = (
+            spec.load_variant_id,
+            spec.store_variant_id,
+            spec.query_embedding_model_id,
+            spec.search_algorithm_id,
+            f"{spec.reranker_id}__{spec.tool_policy_id}",
+        )
+        if retrieval_key in seen_retrieval_keys:
+            continue
+        seen_retrieval_keys.add(retrieval_key)
+        results.append(evaluate_retrieval_spec(spec, reset=reset))
+    return {
+        "experiment": str(experiment_path),
+        "resolved_specs": len(specs),
+        "evaluated_retrieval_specs": len(results),
+        "results": results,
     }
 
 
