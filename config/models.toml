@@ -61,7 +61,7 @@ pricing_input_per_1m_tokens_usd = 0.10
 [embedding_models."emb-pplx-embed-v1-0.6b"]
 provider = "openrouter"
 model = "perplexity/pplx-embed-v1-0.6b"
-batch_size = 32
+batch_size = 16
 pricing_input_per_1m_tokens_usd = 0.004
 
 [embedding_models."emb-pplx-embed-v1-4b"]

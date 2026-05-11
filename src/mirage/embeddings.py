@@ -25,7 +25,7 @@ def _make_openrouter_client(env: EnvironmentSettings) -> OpenAI:
     if not env.openrouter_api_key:
         raise RuntimeError("OPENROUTER_API_KEY is required for remote embedding or generation")
     http_client = httpx.Client(follow_redirects=True, timeout=httpx.Timeout(60.0, connect=10.0))
-    return OpenAI(api_key=env.openrouter_api_key, base_url=env.openrouter_base_url, http_client=http_client)
+    return OpenAI(api_key=env.openrouter_api_key, base_url=env.openrouter_base_url, http_client=http_client, max_retries=0)
 
 
 def _extract_error_code(response: object) -> int | None:
