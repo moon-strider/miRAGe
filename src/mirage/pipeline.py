@@ -33,7 +33,7 @@ def _semantic_sentence_embedder(spec: ResolvedSpec):
 
 
 def _make_qdrant_client(spec: ResolvedSpec) -> QdrantClient:
-    return QdrantClient(url=spec.env.qdrant_url)
+    return QdrantClient(url=spec.env.qdrant_url, timeout=120)
 
 
 def _make_openrouter_client(spec: ResolvedSpec) -> OpenAI:

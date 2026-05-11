@@ -33,7 +33,7 @@ def _make_client(spec: ResolvedSpec) -> QdrantClient:
         raise NotImplementedError(
             f"Store backend '{spec.store_backend_id}' is marked as {spec.store_backend_runtime_status}."
         )
-    return QdrantClient(url=spec.env.qdrant_url)
+    return QdrantClient(url=spec.env.qdrant_url, timeout=120)
 
 
 def _faiss_index_path(spec: ResolvedSpec) -> Path:
@@ -239,7 +239,7 @@ def ingest_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
     if spec.store_backend_kind == "qdrant":
         client = _make_client(spec)
         _create_collection(client, spec, len(vectors[0]), reset=reset)
-        client.upsert(collection_name=collection_name, points=_build_points(chunks, vectors), wait=True)
+        client.upload_points(collection_name=collection_name, points=_build_points(chunks, vectors), batch_size=256, wait=True)
     elif spec.store_backend_kind == "faiss":
         _store_faiss_index(spec, vectors=vectors, reset=reset)
     else:
