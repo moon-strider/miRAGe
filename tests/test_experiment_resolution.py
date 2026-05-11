@@ -130,6 +130,19 @@ def test_store_index_experiment_keeps_active_qdrant_variants() -> None:
     assert {spec.store_index_runtime_status for spec in specs} == {"active"}
 
 
+def test_agentic_experiment_tool_policies_are_active_runtime_axes() -> None:
+    specs = load_experiment_specs(
+        "experiments/01-rag-foundation/inference-agentic",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )
+
+    assert {spec.tool_policy_id for spec in specs} == {
+        "none",
+        "tool-react-v1",
+        "tool-context-expansion-v1",
+    }
+
+
 def test_artifact_layout_uses_layered_paths() -> None:
     spec = load_experiment_specs("experiments/01-rag-foundation/baseline-freeze")[0]
     layout = ArtifactLayout(spec)

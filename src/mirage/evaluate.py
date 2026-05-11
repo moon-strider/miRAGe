@@ -21,10 +21,6 @@ from mirage.schemas import RunMetrics
 
 
 def evaluate_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
-    if spec.tool_policy_id != "none":
-        raise NotImplementedError(
-            f"Tool policy '{spec.tool_policy_id}' is scaffolded but not implemented in runtime yet."
-        )
     examples = load_eval_examples_for_spec(spec)
     if not examples:
         raise ValueError(

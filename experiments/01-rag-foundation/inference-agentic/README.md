@@ -17,5 +17,8 @@ rest of the retrieval stack fixed.
 - query embedding: `emb-bge-small-en-v1.5`
 - prompt variant: `prompt-grounded-citations-v1`
 
-Current runtime support is baseline-only. Non-`none` policies are scaffolded but
-not yet implemented.
+## Runtime status
+
+- `none` remains the baseline single-pass path
+- `tool-context-expansion-v1` runs one bounded follow-up retrieval with larger `top_k`
+- `tool-react-v1` runs one bounded follow-up retrieval with a rewritten evidence-seeking query

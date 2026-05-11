@@ -198,16 +198,61 @@ def _build_context(items: list[RetrievedItem]) -> str:
     return "\n\n---\n\n".join(blocks)
 
 
+def _merge_items(*groups: list[RetrievedItem]) -> list[RetrievedItem]:
+    merged: list[RetrievedItem] = []
+    seen_chunk_ids: set[str] = set()
+    for group in groups:
+        for item in group:
+            if item.chunk_id in seen_chunk_ids:
+                continue
+            seen_chunk_ids.add(item.chunk_id)
+            merged.append(item)
+    return [item.model_copy(update={"order": order}) for order, item in enumerate(merged)]
+
+
+def _merge_retrievals(question: str, qid: str | None, retrievals: list[RetrievalResult], items: list[RetrievedItem]) -> RetrievalResult:
+    return RetrievalResult(
+        qid=qid,
+        question=question,
+        retrieved_doc_ids=dedupe_preserve_order(item.doc_id for item in items),
+        query_embedding_tokens=sum(result.query_embedding_tokens for result in retrievals),
+        query_embedding_cost_usd=round(sum(result.query_embedding_cost_usd for result in retrievals), 6),
+        retrieval_latency_ms=round(sum(result.retrieval_latency_ms for result in retrievals), 2),
+    )
+
+
+def _policy_react_query(question: str, items: list[RetrievedItem]) -> str:
+    seed_terms = ", ".join(item.doc_id for item in items[:2]) or "initial evidence"
+    return f"{question}\nNeed more evidence about {seed_terms}."
+
+
+def _apply_tool_policy(
+    spec: ResolvedSpec,
+    question: str,
+    qid: str | None,
+) -> tuple[RetrievalResult, list[RetrievedItem]]:
+    base_retrieval, base_items = retrieve(spec, question, qid=qid)
+    if spec.tool_policy_id == "none":
+        return base_retrieval, base_items
+    if spec.tool_policy_id == "tool-context-expansion-v1":
+        expanded_spec = spec.model_copy(update={"top_k": max(spec.top_k * 2, spec.top_k + 1)})
+        followup_retrieval, followup_items = retrieve(expanded_spec, question, qid=qid)
+        merged_items = _merge_items(base_items, followup_items)
+        return _merge_retrievals(question, qid, [base_retrieval, followup_retrieval], merged_items), merged_items
+    if spec.tool_policy_id == "tool-react-v1":
+        followup_question = _policy_react_query(question, base_items)
+        followup_retrieval, followup_items = retrieve(spec, followup_question, qid=qid)
+        merged_items = _merge_items(base_items, followup_items)
+        return _merge_retrievals(question, qid, [base_retrieval, followup_retrieval], merged_items), merged_items
+    raise NotImplementedError(f"Unsupported tool policy: {spec.tool_policy_id}")
+
+
 def answer_question(
     spec: ResolvedSpec,
     question: str,
     qid: str | None = None,
 ) -> tuple[RetrievalResult, AnswerResult, list[RetrievedItem]]:
-    if spec.tool_policy_id != "none":
-        raise NotImplementedError(
-            f"Tool policy '{spec.tool_policy_id}' is scaffolded but not implemented in runtime yet."
-        )
-    retrieval, retrieved_items = retrieve(spec, question, qid=qid)
+    retrieval, retrieved_items = _apply_tool_policy(spec, question, qid)
     started = perf_counter()
     context = _build_context(retrieved_items)
     prompt = spec.prompt_user_template.format(question=question, context=context)
