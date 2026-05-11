@@ -11,9 +11,12 @@ from mirage.metrics import (
     exact_match,
     hit_at_k,
     mean_metric,
+    ndcg_at_k,
     percentile,
+    precision_at_k,
     reciprocal_rank,
     recall_at_k,
+    reranker_coverage,
     token_f1,
 )
 from mirage.pipeline import answer_question
@@ -44,8 +47,10 @@ def evaluate_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
     retrieval_rows: list[dict] = []
     answer_rows: list[dict] = []
     hit_scores: list[float] = []
+    precision_scores: list[float] = []
     recall_scores: list[float] = []
     mrr_scores: list[float] = []
+    ndcg_scores: list[float] = []
     exact_match_scores: list[float] = []
     token_f1_scores: list[float] = []
     citation_scores: list[float] = []
@@ -53,20 +58,25 @@ def evaluate_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
     query_embedding_costs: list[float] = []
     generation_input_costs: list[float] = []
     generation_output_costs: list[float] = []
+    reranker_coverages: list[float] = []
 
     for example in examples:
         retrieval, answer, retrieved_items = answer_question(spec, example.question, qid=example.qid)
 
         hit_score = hit_at_k(answer.retrieved_doc_ids, example.gold_doc_ids, spec.top_k)
+        precision_score = precision_at_k(answer.retrieved_doc_ids, example.gold_doc_ids, spec.top_k)
         recall_score = recall_at_k(answer.retrieved_doc_ids, example.gold_doc_ids, spec.top_k)
         mrr_score = reciprocal_rank(answer.retrieved_doc_ids, example.gold_doc_ids, spec.mrr_depth)
+        ndcg_score = ndcg_at_k(answer.retrieved_doc_ids, example.gold_doc_ids, spec.mrr_depth)
         em_score = exact_match(answer.answer, example.gold_answers)
         f1_score = token_f1(answer.answer, example.gold_answers)
         citation_score = citation_hit_rate(answer.citations, example.gold_doc_ids)
 
         hit_scores.append(hit_score)
+        precision_scores.append(precision_score)
         recall_scores.append(recall_score)
         mrr_scores.append(mrr_score)
+        ndcg_scores.append(ndcg_score)
         exact_match_scores.append(em_score)
         token_f1_scores.append(f1_score)
         citation_scores.append(citation_score)
@@ -74,6 +84,7 @@ def evaluate_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
         query_embedding_costs.append(retrieval.query_embedding_cost_usd)
         generation_input_costs.append(answer.generation_input_cost_usd)
         generation_output_costs.append(answer.generation_output_cost_usd)
+        reranker_coverages.append(reranker_coverage(spec.search_dense_top_k or spec.top_k, spec.top_k))
 
         retrieval_rows.append(
             {
@@ -84,8 +95,10 @@ def evaluate_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
                 "retrieved": [item.model_dump(mode="json") for item in retrieved_items],
                 "metrics": {
                     "hit_at_k": hit_score,
+                    "precision_at_k": precision_score,
                     "recall_at_k": recall_score,
                     "mrr_at_k": mrr_score,
+                    "ndcg_at_k": ndcg_score,
                 },
             }
         )
@@ -118,8 +131,10 @@ def evaluate_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
     metrics = RunMetrics(
         retrieval={
             "hit_at_k": round(mean_metric(hit_scores), 4),
+            "precision_at_k": round(mean_metric(precision_scores), 4),
             "recall_at_k": round(mean_metric(recall_scores), 4),
             "mrr_at_k": round(mean_metric(mrr_scores), 4),
+            "ndcg_at_k": round(mean_metric(ndcg_scores), 4),
         },
         generation={
             "exact_match": round(mean_metric(exact_match_scores), 4),
@@ -130,6 +145,7 @@ def evaluate_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
             "examples": float(len(examples)),
             "latency_p50_ms": round(percentile(latencies_ms, 0.50), 2),
             "latency_p95_ms": round(percentile(latencies_ms, 0.95), 2),
+            "reranker_coverage": round(mean_metric(reranker_coverages), 4),
         },
         cost={
             "build_preprocessing_cost_usd": 0.0,

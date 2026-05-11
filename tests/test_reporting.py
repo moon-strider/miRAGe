@@ -50,8 +50,10 @@ def _write_eval_artifacts(spec, value: float) -> None:
                 ],
                 "metrics": {
                     "hit_at_k": value,
+                    "precision_at_k": value,
                     "recall_at_k": value,
                     "mrr_at_k": value,
+                    "ndcg_at_k": value,
                 },
             }
         ],
@@ -89,8 +91,10 @@ def _write_eval_artifacts(spec, value: float) -> None:
         {
             "retrieval": {
                 "hit_at_k": value,
+                "precision_at_k": value,
                 "recall_at_k": value,
                 "mrr_at_k": value,
+                "ndcg_at_k": value,
             },
             "generation": {
                 "exact_match": value,
@@ -101,6 +105,7 @@ def _write_eval_artifacts(spec, value: float) -> None:
                 "examples": 1.0,
                 "latency_p50_ms": 25.0,
                 "latency_p95_ms": 25.0,
+                "reranker_coverage": 1.0,
             },
             "cost": {
                 "build_preprocessing_cost_usd": 0.0,

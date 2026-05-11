@@ -150,8 +150,8 @@ def _compared_variants_table(baseline: ResolvedSpec, candidate: ResolvedSpec | N
 
 def _metrics_table(baseline_specs: list[ResolvedSpec], candidate_specs: list[ResolvedSpec] | None) -> str:
     rows = [
-        "| generation_model_id | baseline Hit@k | candidate Hit@k | baseline Recall@k | candidate Recall@k | baseline MRR@k | candidate MRR@k | baseline Exact Match | candidate Exact Match | baseline Token F1 | candidate Token F1 | baseline Citation Hit Rate | candidate Citation Hit Rate | baseline p50 ms | candidate p50 ms | baseline p95 ms | candidate p95 ms |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| generation_model_id | baseline Hit@k | candidate Hit@k | baseline Precision@k | candidate Precision@k | baseline Recall@k | candidate Recall@k | baseline MRR@k | candidate MRR@k | baseline NDCG@k | candidate NDCG@k | baseline Exact Match | candidate Exact Match | baseline Token F1 | candidate Token F1 | baseline Citation Hit Rate | candidate Citation Hit Rate | baseline p50 ms | candidate p50 ms | baseline p95 ms | candidate p95 ms | baseline reranker coverage | candidate reranker coverage |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     baseline_by_model = {spec.generation_model_id: _load_metrics(spec) for spec in baseline_specs}
     candidate_by_model = baseline_by_model if candidate_specs is None else {spec.generation_model_id: _load_metrics(spec) for spec in candidate_specs}
@@ -159,14 +159,18 @@ def _metrics_table(baseline_specs: list[ResolvedSpec], candidate_specs: list[Res
         baseline_metrics = baseline_by_model[generation_model_id]
         candidate_metrics = candidate_by_model[generation_model_id]
         rows.append(
-            "| {model} | {b_hit:.4f} | {c_hit:.4f} | {b_recall:.4f} | {c_recall:.4f} | {b_mrr:.4f} | {c_mrr:.4f} | {b_em:.4f} | {c_em:.4f} | {b_f1:.4f} | {c_f1:.4f} | {b_cit:.4f} | {c_cit:.4f} | {b_p50:.2f} | {c_p50:.2f} | {b_p95:.2f} | {c_p95:.2f} |".format(
+            "| {model} | {b_hit:.4f} | {c_hit:.4f} | {b_precision:.4f} | {c_precision:.4f} | {b_recall:.4f} | {c_recall:.4f} | {b_mrr:.4f} | {c_mrr:.4f} | {b_ndcg:.4f} | {c_ndcg:.4f} | {b_em:.4f} | {c_em:.4f} | {b_f1:.4f} | {c_f1:.4f} | {b_cit:.4f} | {c_cit:.4f} | {b_p50:.2f} | {c_p50:.2f} | {b_p95:.2f} | {c_p95:.2f} | {b_cov:.4f} | {c_cov:.4f} |".format(
                 model=generation_model_id,
                 b_hit=baseline_metrics["retrieval"]["hit_at_k"],
                 c_hit=candidate_metrics["retrieval"]["hit_at_k"],
+                b_precision=baseline_metrics["retrieval"]["precision_at_k"],
+                c_precision=candidate_metrics["retrieval"]["precision_at_k"],
                 b_recall=baseline_metrics["retrieval"]["recall_at_k"],
                 c_recall=candidate_metrics["retrieval"]["recall_at_k"],
                 b_mrr=baseline_metrics["retrieval"]["mrr_at_k"],
                 c_mrr=candidate_metrics["retrieval"]["mrr_at_k"],
+                b_ndcg=baseline_metrics["retrieval"]["ndcg_at_k"],
+                c_ndcg=candidate_metrics["retrieval"]["ndcg_at_k"],
                 b_em=baseline_metrics["generation"]["exact_match"],
                 c_em=candidate_metrics["generation"]["exact_match"],
                 b_f1=baseline_metrics["generation"]["token_f1"],
@@ -177,6 +181,8 @@ def _metrics_table(baseline_specs: list[ResolvedSpec], candidate_specs: list[Res
                 c_p50=candidate_metrics["operational"]["latency_p50_ms"],
                 b_p95=baseline_metrics["operational"]["latency_p95_ms"],
                 c_p95=candidate_metrics["operational"]["latency_p95_ms"],
+                b_cov=baseline_metrics["operational"]["reranker_coverage"],
+                c_cov=candidate_metrics["operational"]["reranker_coverage"],
             )
         )
     return "\n".join(rows)

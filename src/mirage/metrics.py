@@ -70,6 +70,37 @@ def reciprocal_rank(retrieved_doc_ids: list[str], gold_doc_ids: list[str], k: in
     return 0.0
 
 
+def precision_at_k(retrieved_doc_ids: list[str], gold_doc_ids: list[str], k: int) -> float:
+    if k <= 0:
+        return 0.0
+    gold = set(gold_doc_ids)
+    if not gold:
+        return 0.0
+    hits = sum(1 for doc_id in retrieved_doc_ids[:k] if doc_id in gold)
+    return hits / min(k, max(len(retrieved_doc_ids[:k]), 1))
+
+
+def ndcg_at_k(retrieved_doc_ids: list[str], gold_doc_ids: list[str], k: int) -> float:
+    gold = set(gold_doc_ids)
+    if k <= 0 or not gold:
+        return 0.0
+    dcg = 0.0
+    for index, doc_id in enumerate(retrieved_doc_ids[:k], start=1):
+        if doc_id in gold:
+            dcg += 1.0 / math.log2(index + 1)
+    ideal_hits = min(len(gold), k)
+    if ideal_hits == 0:
+        return 0.0
+    ideal_dcg = sum(1.0 / math.log2(index + 1) for index in range(1, ideal_hits + 1))
+    return dcg / ideal_dcg
+
+
+def reranker_coverage(reranker_pool_size: int, final_top_k: int) -> float:
+    if final_top_k <= 0:
+        return 0.0
+    return reranker_pool_size / final_top_k
+
+
 def extract_citations(answer: str) -> list[str]:
     return dedupe_preserve_order(match.strip() for match in _CITATION_RE.findall(answer))
 

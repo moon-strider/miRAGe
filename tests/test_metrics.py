@@ -1,20 +1,21 @@
-from mirage.metrics import citation_hit_rate, exact_match, extract_citations, reciprocal_rank, token_f1
+from __future__ import annotations
+
+from mirage.metrics import ndcg_at_k, precision_at_k, reranker_coverage
 
 
-def test_exact_match_normalizes_case_and_punctuation() -> None:
-    assert exact_match("UV!", ["uv"]) == 1.0
+def test_precision_at_k_counts_relevant_prefix_hits() -> None:
+    score = precision_at_k(["doc-1", "doc-2", "doc-3"], ["doc-2", "doc-4"], 2)
+
+    assert score == 0.5
 
 
-def test_token_f1_prefers_best_gold_answer() -> None:
-    score = token_f1("Qdrant vector database", ["Qdrant", "Postgres"])
-    assert 0.0 < score <= 1.0
+def test_ndcg_at_k_rewards_earlier_relevant_hits() -> None:
+    score = ndcg_at_k(["doc-2", "doc-9", "doc-4"], ["doc-2", "doc-4"], 3)
+
+    assert round(score, 4) == 0.9197
 
 
-def test_extract_citations_and_hit_rate() -> None:
-    citations = extract_citations("Use uv [doc-002] and just [doc-002].")
-    assert citations == ["doc-002"]
-    assert citation_hit_rate(citations, ["doc-002"]) == 1.0
+def test_reranker_coverage_compares_reranked_pool_to_final_k() -> None:
+    score = reranker_coverage(20, 10)
 
-
-def test_reciprocal_rank_uses_first_relevant_hit() -> None:
-    assert reciprocal_rank(["doc-010", "doc-002", "doc-003"], ["doc-002"], 10) == 0.5
+    assert score == 2.0

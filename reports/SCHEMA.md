@@ -127,8 +127,8 @@ Metrics must be shown per generation model.
 
 Minimum table shape:
 
-| generation_model_id | Hit@k | Recall@k | MRR@k | Exact Match | Token F1 | Citation Hit Rate | p50 ms | p95 ms |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| generation_model_id | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | Exact Match | Token F1 | Citation Hit Rate | p50 ms | p95 ms | reranker coverage |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 
 Add storage footprint and ingest time when the comparison changes store-time behavior.
 Add ranking metrics when the comparison changes ranking behavior.
