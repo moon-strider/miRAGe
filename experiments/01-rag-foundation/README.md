@@ -54,6 +54,7 @@ records at runtime; no repository-local normalized benchmark copies are stored.
 - `wave1-dense-topk20/` — high-recall dense retrieval depth against the baseline
 - `wave1-sparse-bm25/` — sparse lexical retrieval against the baseline
 - `wave1-hybrid-rrf/` — hybrid sparse+dense retrieval against the baseline
+- `wave1-faiss-flat/` — exact local FAISS flat backend control against the baseline
 - `wave1-rerank-jina-tiny/` — planned later reranker/LLM-stage candidate
 - `wave1-semantic-chunking/` — planned later embedding-heavy chunking candidate
 - `wave1-tool-context-expansion/` — planned later orchestration candidate
@@ -81,6 +82,7 @@ Baseline metrics:
 | `wave1-dense-topk20` | 0.9000 (+0.1000) | 0.0513 (-0.1214) | 0.8977 (+0.1206) | 0.6849 (+0.0107) | 0.7301 (+0.0384) | 919.28 (-3.09) |
 | `wave1-sparse-bm25` | 0.6867 (-0.1133) | 0.0742 (-0.0985) | 0.6688 (-0.1083) | 0.5095 (-0.1647) | 0.5438 (-0.1479) | 1722.37 (+800.00) |
 | `wave1-hybrid-rrf` | 0.8467 (+0.0467) | 0.0935 (-0.0792) | 0.8321 (+0.0550) | 0.6530 (-0.0212) | 0.6899 (-0.0018) | 1788.07 (+865.70) |
+| `wave1-faiss-flat` | 0.8000 (+0.0000) | 0.1727 (+0.0000) | 0.7771 (+0.0000) | 0.6742 (+0.0000) | 0.6917 (+0.0000) | 961.00 (+38.63) |
 
 Interpretation:
 - `wave1-dense-topk20` is the strongest recall-oriented candidate: it reaches Hit@k 0.9000 and Recall@k 0.8977.
@@ -88,3 +90,4 @@ Interpretation:
 - `wave1-dense-topk3` confirms top-k 5 is not obviously over-retrieving: precision improves, but recall and hit rate drop.
 - `wave1-sparse-bm25` underperforms dense retrieval alone on SciFact.
 - `wave1-hybrid-rrf` improves over baseline but underperforms dense top-k 10/top-k 20 in this run, so hybrid should not become the default yet.
+- `wave1-faiss-flat` exactly matches baseline retrieval quality, so Qdrant HNSW is not a measured quality confounder for the current SciFact dense top-k5 baseline; FAISS is slightly slower here.
