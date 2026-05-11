@@ -185,3 +185,23 @@ def test_synthesize_reports_writes_wave1_report_against_frozen_baseline(artifact
     assert "candidate_id: wave1-dense-topk10" in content
     assert "search-dense-topk5-v1" in content
     assert "search-dense-topk10-v1" in content
+
+
+def test_synthesize_wave1_report_uses_candidate_dataset_for_baseline(artifact_root: Path) -> None:
+    overrides = {"dataset_id": "ds-beir-scifact-v1", "evalset_id": "ev-beir-scifact-v1"}
+    baseline_specs = load_experiment_specs("experiments/01-rag-foundation/baseline-freeze", overrides=overrides)
+    candidate_specs = load_experiment_specs("experiments/01-rag-foundation/wave1-dense-topk10", overrides=overrides)
+    for spec in baseline_specs:
+        _write_eval_artifacts(spec, 0.6)
+    for spec in candidate_specs:
+        _write_eval_artifacts(spec, 0.9)
+
+    report_paths = synthesize_reports(
+        candidate_specs,
+        reports_root=artifact_root / "reports",
+        baseline_id="baseline-freeze",
+    )
+
+    content = report_paths[0].read_text(encoding="utf-8")
+    assert "dataset_id: ds-beir-scifact-v1" in content
+    assert "evalset_id: ev-beir-scifact-v1" in content

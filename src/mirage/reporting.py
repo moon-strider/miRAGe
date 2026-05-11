@@ -350,7 +350,10 @@ def synthesize_reports(
         return [_write_report(root, sorted(specs, key=lambda item: item.generation_model_id), None, "baseline-freeze", "baseline-freeze")]
     if experiment_id.startswith("wave1-"):
         baseline_specs = sorted(
-            load_experiment_specs(Path("experiments") / "01-rag-foundation" / "baseline-freeze"),
+            load_experiment_specs(
+                Path("experiments") / "01-rag-foundation" / "baseline-freeze",
+                overrides={"dataset_id": specs[0].dataset_id, "evalset_id": specs[0].evalset_id},
+            ),
             key=lambda item: item.generation_model_id,
         )
         candidate_specs = sorted(specs, key=lambda item: item.generation_model_id)
