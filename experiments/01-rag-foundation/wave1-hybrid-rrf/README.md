@@ -40,3 +40,25 @@ Add after execution:
 - whether lexical rescue cases were visible in failure analysis
 - fusion cost/latency impact
 - whether hybrid improved recall only or also improved final answers
+
+
+## Retrieval-only full-dataset results: SciFact, 2026-05-11
+
+Report:
+- `reports/01-rag-foundation/wave1-hybrid-rrf/2026-05-11__retrieval-only-scifact__wave1-hybrid-rrf__vs-baseline-freeze.md`
+
+| metric | baseline | candidate | delta |
+| --- | ---: | ---: | ---: |
+| hit_at_k | 0.8000 | 0.8467 | +0.0467 |
+| precision_at_k | 0.1727 | 0.0935 | -0.0792 |
+| recall_at_k | 0.7771 | 0.8321 | +0.0550 |
+| mrr_at_k | 0.6736 | 0.6530 | -0.0206 |
+| ndcg_at_k | 0.6912 | 0.6899 | -0.0013 |
+| p50 latency ms | 917.85 | 1788.07 | +870.22 |
+| p95 latency ms | 2067.89 | 2608.10 | +540.21 |
+
+Interpretation:
+- No LLM calls were made; this is retrieval-only evaluation.
+- The lexical-rescue hypothesis partially held: Hit@k and Recall@k improved over baseline.
+- The tradeoff is latency: p50 increased by +870.22 ms.
+- Dense top-k 10 remains stronger than hybrid RRF on this first SciFact run, so hybrid should not become the default yet.
