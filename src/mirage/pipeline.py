@@ -12,6 +12,21 @@ from mirage.metrics import dedupe_preserve_order, extract_citations
 from mirage.schemas import AnswerResult, RetrievedItem, RetrievalResult
 
 
+def _semantic_sentence_embedder(spec: ResolvedSpec):
+    def _embed(texts: list[str]) -> list[list[float]]:
+        vectors, _, _ = embed_texts(
+            provider=spec.semantic_embedding_provider,
+            model=spec.semantic_embedding_model,
+            texts=texts,
+            batch_size=spec.semantic_embedding_batch_size,
+            env=spec.env,
+            pricing_input_per_1m_tokens_usd=spec.semantic_embedding_pricing_input_per_1m_tokens_usd,
+        )
+        return vectors
+
+    return _embed
+
+
 def _make_qdrant_client(spec: ResolvedSpec) -> QdrantClient:
     return QdrantClient(url=spec.env.qdrant_url)
 

@@ -16,12 +16,14 @@ This experiment varies the model used for semantic chunking.
 
 ## Matrix
 
-- semantic chunker model: all three fixed generation models
+- semantic chunker model: `emb-bge-small-en-v1.5`, `emb-text-embedding-3-small`, `emb-text-embedding-3-large`
 - generation model: all three fixed generation models
 
 ## Runtime status
 
-Semantic chunking is scaffolded in the experiment system but is not implemented in runtime yet.
+- executable in the current runtime
+- semantic boundaries are determined by sentence-level similarity thresholding
+- chunking artifacts remain model-bound through `chunking_model_id`
 
 The runtime treats `chunking_model_id` as a load-time variable and
 `generation_model_id` as a separate inference-time variable.

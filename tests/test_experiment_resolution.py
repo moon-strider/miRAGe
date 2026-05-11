@@ -54,6 +54,23 @@ def test_deterministic_chunking_experiment_resolves_three_chunking_variants() ->
     assert {spec.chunking_kind for spec in specs} == {"token", "sentence"}
 
 
+def test_semantic_chunking_experiment_resolves_runtime_config() -> None:
+    specs = load_experiment_specs(
+        "experiments/01-rag-foundation/load-semantic-chunking",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )
+
+    assert len(specs) == 3
+    assert {spec.chunking_kind for spec in specs} == {"semantic"}
+    assert {spec.chunking_model_id for spec in specs} == {
+        "emb-bge-small-en-v1.5",
+        "emb-text-embedding-3-small",
+        "emb-text-embedding-3-large",
+    }
+    assert {spec.semantic_embedding_provider for spec in specs} == {"fastembed", "openrouter"}
+    assert all(spec.chunk_size == 1024 for spec in specs)
+
+
 def test_embedding_experiment_uses_coupled_cases() -> None:
     specs = load_experiment_specs("experiments/01-rag-foundation/store-embedding-models")
 

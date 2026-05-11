@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+import math
 import re
 
 import tiktoken
@@ -22,6 +23,17 @@ def _make_chunk(document: Document, *, order: int, text: str, token_count: int) 
         token_count=token_count,
         metadata=document.metadata,
     )
+
+
+def _cosine_similarity(left: list[float], right: list[float]) -> float:
+    if len(left) != len(right):
+        raise ValueError("Semantic chunking vectors must share the same dimensionality")
+    left_norm = math.sqrt(sum(value * value for value in left))
+    right_norm = math.sqrt(sum(value * value for value in right))
+    if left_norm == 0.0 or right_norm == 0.0:
+        return 0.0
+    dot = sum(lhs * rhs for lhs, rhs in zip(left, right, strict=True))
+    return dot / (left_norm * right_norm)
 
 
 class TokenChunker:
@@ -160,11 +172,81 @@ class SentenceChunker:
 
 
 class SemanticChunker:
-    def __init__(self, config: ChunkingConfig) -> None:
+    def __init__(
+        self,
+        config: ChunkingConfig,
+        *,
+        embedder: Callable[[list[str]], list[list[float]]] | None = None,
+    ) -> None:
         self._config = config
+        self._encoding = tiktoken.get_encoding(config.tokenizer)
+        self._embedder = embedder
+        self._threshold = config.semantic_similarity_threshold
+        self._min_sentences = max(config.semantic_min_sentences_per_chunk, 1)
+
+    def _split_sentences(self, text: str) -> list[str]:
+        stripped = text.strip()
+        if not stripped:
+            return []
+        sentences = [part.strip() for part in _SENTENCE_SPLIT_RE.split(stripped) if part.strip()]
+        return sentences or [stripped]
+
+    def _embed_sentences(self, sentences: list[str]) -> list[list[float]]:
+        if self._embedder is None:
+            raise NotImplementedError(
+                "Semantic chunking requires an embedding-backed sentence segmenter, but runtime sentence embedding integration is not configured yet."
+            )
+        return self._embedder(sentences)
+
+    def chunk_document(self, document: Document) -> list[Chunk]:
+        sentences = self._split_sentences(document.text)
+        if not sentences:
+            return []
+        vectors = self._embed_sentences(sentences)
+        if len(vectors) != len(sentences):
+            raise ValueError("Semantic chunking embedder must return one vector per sentence")
+        chunks: list[Chunk] = []
+        current_sentences = [sentences[0]]
+        current_tokens = len(self._encoding.encode(sentences[0]))
+        current_vector = vectors[0]
+        order = 0
+        for sentence, vector in zip(sentences[1:], vectors[1:], strict=True):
+            sentence_tokens = len(self._encoding.encode(sentence))
+            similarity = _cosine_similarity(current_vector, vector)
+            should_split = (
+                len(current_sentences) >= self._min_sentences
+                and (similarity < self._threshold or current_tokens + sentence_tokens > self._config.chunk_size)
+            )
+            if should_split:
+                chunks.append(
+                    _make_chunk(
+                        document,
+                        order=order,
+                        text=" ".join(current_sentences).strip(),
+                        token_count=current_tokens,
+                    )
+                )
+                order += 1
+                current_sentences = [sentence]
+                current_tokens = sentence_tokens
+                current_vector = vector
+                continue
+            current_sentences.append(sentence)
+            current_tokens += sentence_tokens
+            current_vector = [lhs + rhs for lhs, rhs in zip(current_vector, vector, strict=True)]
+        if current_sentences:
+            chunks.append(
+                _make_chunk(
+                    document,
+                    order=order,
+                    text=" ".join(current_sentences).strip(),
+                    token_count=current_tokens,
+                )
+            )
+        return chunks
 
     def chunk_documents(self, documents: Iterable[Document]) -> list[Chunk]:
-        raise NotImplementedError(
-            "Semantic chunking is declared in the experiment scaffold but is not implemented yet. "
-            f"Requested chunking_model_id={self._config.chunking_model_id}."
-        )
+        output: list[Chunk] = []
+        for document in documents:
+            output.extend(self.chunk_document(document))
+        return output

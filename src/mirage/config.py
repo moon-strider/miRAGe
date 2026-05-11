@@ -16,6 +16,8 @@ class ChunkingConfig(BaseModel):
     chunk_size: int = 500
     chunk_overlap: int = 50
     chunking_model_id: str = "none"
+    semantic_similarity_threshold: float = 0.8
+    semantic_min_sentences_per_chunk: int = 2
 
 
 class EnvironmentSettings(BaseSettings):
@@ -149,6 +151,12 @@ class ResolvedSpec(BaseModel):
     chunk_tokenizer: str
     chunk_size: int
     chunk_overlap: int
+    semantic_similarity_threshold: float = 0.8
+    semantic_min_sentences_per_chunk: int = 2
+    semantic_embedding_provider: str = "none"
+    semantic_embedding_model: str = "none"
+    semantic_embedding_batch_size: int = 1
+    semantic_embedding_pricing_input_per_1m_tokens_usd: float = 0.0
     store_backend_id: str
     store_backend_kind: str
     store_backend_runtime_status: str
@@ -283,6 +291,7 @@ def _build_resolved_spec(
     if values["tool_policy_id"] not in registries.tool_policies:
         raise ValueError(f"Unknown tool_policy_id: {values['tool_policy_id']}")
     generation = registries.generation_models[values["generation_model_id"]]
+    semantic_embedding = registries.embedding_models.get(values["chunking_model_id"])
 
     if store_index.backend_id != values["store_backend_id"]:
         raise ValueError(
@@ -323,6 +332,14 @@ def _build_resolved_spec(
         chunk_tokenizer=chunking.tokenizer,
         chunk_size=chunking.chunk_size,
         chunk_overlap=chunking.chunk_overlap,
+        semantic_similarity_threshold=float(values.get("semantic_similarity_threshold", 0.8)),
+        semantic_min_sentences_per_chunk=int(values.get("semantic_min_sentences_per_chunk", 2)),
+        semantic_embedding_provider=(semantic_embedding.provider if semantic_embedding is not None else "none"),
+        semantic_embedding_model=(semantic_embedding.model if semantic_embedding is not None else "none"),
+        semantic_embedding_batch_size=(semantic_embedding.batch_size if semantic_embedding is not None else 1),
+        semantic_embedding_pricing_input_per_1m_tokens_usd=(
+            semantic_embedding.pricing_input_per_1m_tokens_usd if semantic_embedding is not None else 0.0
+        ),
         store_backend_id=values["store_backend_id"],
         store_backend_kind=store_backend.kind,
         store_backend_runtime_status=store_backend.runtime_status,

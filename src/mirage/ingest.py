@@ -11,6 +11,7 @@ from mirage.chunking import SemanticChunker, SentenceChunker, TokenChunker
 from mirage.config import ChunkingConfig, ResolvedSpec
 from mirage.embeddings import embed_texts
 from mirage.io_utils import read_json, read_jsonl, write_json, write_jsonl
+from mirage.pipeline import _semantic_sentence_embedder
 from mirage.schemas import Chunk, Document
 
 _DISTANCE_MAP = {
@@ -39,9 +40,11 @@ def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | Seman
         chunk_size=spec.chunk_size,
         chunk_overlap=spec.chunk_overlap,
         chunking_model_id=spec.chunking_model_id,
+        semantic_similarity_threshold=spec.semantic_similarity_threshold,
+        semantic_min_sentences_per_chunk=spec.semantic_min_sentences_per_chunk,
     )
     if spec.chunking_kind == "semantic":
-        return SemanticChunker(config)
+        return SemanticChunker(config, embedder=_semantic_sentence_embedder(spec))
     if spec.chunking_kind == "sentence":
         return SentenceChunker(config)
     return TokenChunker(config)
