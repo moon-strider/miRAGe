@@ -64,6 +64,14 @@ dense_top_k = 10
 sparse_top_k = 10
 rrf_k = 60
 
+[search_algorithms.search-dense-mmr-topk10-v1]
+kind = "dense-mmr"
+top_k = 10
+mrr_depth = 10
+distance = "cosine"
+dense_top_k = 20
+mmr_lambda = 0.5
+
 [prompt_variants.prompt-grounded-citations-v1]
 system_prompt = """
 You answer only from the provided context.

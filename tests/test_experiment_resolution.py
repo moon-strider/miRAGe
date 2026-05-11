@@ -91,13 +91,14 @@ def test_search_experiment_includes_dense_sparse_and_hybrid_variants() -> None:
         overrides={"generation_model_id": "gen-llama-3.1-8b"},
     )
 
-    assert {spec.search_kind for spec in specs} == {"dense", "sparse", "hybrid"}
+    assert {spec.search_kind for spec in specs} == {"dense", "sparse", "hybrid", "dense-mmr"}
     assert {spec.search_algorithm_id for spec in specs} == {
         "search-dense-topk5-v1",
         "search-dense-topk10-v1",
         "search-dense-topk20-v1",
         "search-sparse-bm25-topk10-v1",
         "search-hybrid-rrf-topk10-v1",
+        "search-dense-mmr-topk10-v1",
     }
 
 

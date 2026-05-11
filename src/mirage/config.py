@@ -111,6 +111,7 @@ class SearchAlgorithmEntry(BaseModel):
     dense_top_k: int | None = None
     sparse_top_k: int | None = None
     rrf_k: int = 60
+    mmr_lambda: float = 0.5
 
 
 class PromptVariantEntry(BaseModel):
@@ -190,6 +191,7 @@ class ResolvedSpec(BaseModel):
     search_dense_top_k: int | None = None
     search_sparse_top_k: int | None = None
     search_rrf_k: int = 60
+    search_mmr_lambda: float = 0.5
     reranker_id: str
     reranker_kind: str
     reranker_model: str | None = None
@@ -387,6 +389,7 @@ def _build_resolved_spec(
         search_dense_top_k=search.dense_top_k,
         search_sparse_top_k=search.sparse_top_k,
         search_rrf_k=search.rrf_k,
+        search_mmr_lambda=search.mmr_lambda,
         reranker_id=values["reranker_id"],
         reranker_kind=reranker.kind,
         reranker_model=reranker.model,

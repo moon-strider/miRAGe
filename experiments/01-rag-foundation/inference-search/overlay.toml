@@ -20,4 +20,5 @@ search_algorithm_id = [
   "search-dense-topk20-v1",
   "search-sparse-bm25-topk10-v1",
   "search-hybrid-rrf-topk10-v1",
+  "search-dense-mmr-topk10-v1",
 ]

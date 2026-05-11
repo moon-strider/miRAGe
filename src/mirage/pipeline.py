@@ -12,7 +12,7 @@ from mirage.faiss_store import load_faiss_index, search_faiss_index
 from mirage.io_utils import read_jsonl
 from mirage.metrics import dedupe_preserve_order, extract_citations
 from mirage.reranking import rerank_items
-from mirage.retrieval import rrf_fuse, sparse_search
+from mirage.retrieval import mmr_search, rrf_fuse, sparse_search
 from mirage.schemas import AnswerResult, Chunk, RetrievedItem, RetrievalResult
 
 
@@ -114,6 +114,26 @@ def _search_store(
     raise NotImplementedError(f"Unsupported store backend: {spec.store_backend_kind}")
 
 
+def _search_store_with_vectors(
+    spec: ResolvedSpec,
+    query_vector: list[float],
+    *,
+    limit: int,
+) -> tuple[list[RetrievedItem], list[list[float]]]:
+    results = _search_store(spec, query_vector, limit=limit)
+    if not results:
+        return [], []
+    vectors, _, _ = embed_texts(
+        provider=spec.store_embedding_provider,
+        model=spec.store_embedding_model,
+        texts=[item.text for item in results],
+        batch_size=spec.store_embedding_batch_size,
+        env=spec.env,
+        pricing_input_per_1m_tokens_usd=spec.store_embedding_pricing_input_per_1m_tokens_usd,
+    )
+    return results, vectors
+
+
 def _scroll_all_store_items(spec: ResolvedSpec) -> list[RetrievedItem]:
     if spec.store_backend_kind == "qdrant":
         return _scroll_all_qdrant_items(spec)
@@ -136,7 +156,7 @@ def _scroll_all_store_items(spec: ResolvedSpec) -> list[RetrievedItem]:
 
 
 def retrieve(spec: ResolvedSpec, question: str, qid: str | None = None) -> tuple[RetrievalResult, list[RetrievedItem]]:
-    if spec.search_kind not in {"dense", "sparse", "hybrid"}:
+    if spec.search_kind not in {"dense", "sparse", "hybrid", "dense-mmr"}:
         raise NotImplementedError(
             f"Search algorithm '{spec.search_algorithm_id}' is scaffolded but not implemented in runtime yet."
         )
@@ -156,10 +176,19 @@ def retrieve(spec: ResolvedSpec, question: str, qid: str | None = None) -> tuple
         results = _search_store(spec, query_vector, limit=spec.top_k)
     elif spec.search_kind == "sparse":
         results = sparse_search(question, _scroll_all_store_items(spec), top_k=spec.top_k)
-    else:
+    elif spec.search_kind == "hybrid":
         dense_results = _search_store(spec, query_vector, limit=dense_limit)
         sparse_results = sparse_search(question, _scroll_all_store_items(spec), top_k=sparse_limit)
         results = rrf_fuse([dense_results, sparse_results], top_k=spec.top_k, rrf_k=spec.search_rrf_k)
+    else:
+        dense_results, dense_vectors = _search_store_with_vectors(spec, query_vector, limit=dense_limit)
+        results = mmr_search(
+            query_vector,
+            dense_results,
+            dense_vectors,
+            top_k=spec.top_k,
+            lambda_weight=spec.search_mmr_lambda,
+        )
     results = rerank_items(
         reranker_id=spec.reranker_id,
         reranker_kind=spec.reranker_kind,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from mirage.reranking import rerank_items
-from mirage.retrieval import rrf_fuse, sparse_search
+from mirage.retrieval import mmr_search, rrf_fuse, sparse_search
 from mirage.schemas import RetrievedItem
 
 
@@ -42,6 +42,24 @@ def test_rrf_fuse_combines_rankings() -> None:
 
     assert fused[0].chunk_id == "doc-002::chunk-0000"
     assert len(fused) == 3
+
+
+def test_mmr_search_promotes_diversity() -> None:
+    items = [
+        _item("doc-001::chunk-0000", "apple orchard"),
+        _item("doc-002::chunk-0000", "apple harvest"),
+        _item("doc-003::chunk-0000", "bond inflation"),
+    ]
+    item_vectors = [
+        [1.0, 0.0],
+        [0.99, 0.01],
+        [0.0, 1.0],
+    ]
+
+    ranked = mmr_search([1.0, 0.0], items, item_vectors, top_k=2, lambda_weight=0.2)
+
+    assert ranked[0].chunk_id == "doc-001::chunk-0000"
+    assert ranked[1].chunk_id == "doc-003::chunk-0000"
 
 
 def test_rerank_items_reorders_results(monkeypatch) -> None:
