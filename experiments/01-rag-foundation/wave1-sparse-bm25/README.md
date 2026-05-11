@@ -31,3 +31,23 @@ Add after execution:
 - measured retrieval metric deltas
 - latency deltas
 - whether BM25 is competitive alone or only useful as a hybrid component
+
+
+## Retrieval-only full-dataset results: SciFact, 2026-05-11
+
+Report:
+- `reports/01-rag-foundation/wave1-sparse-bm25/2026-05-11__retrieval-only-scifact__wave1-sparse-bm25__vs-baseline-freeze.md`
+
+| metric | baseline | candidate | delta |
+| --- | ---: | ---: | ---: |
+| hit_at_k | 0.8000 | 0.6867 | -0.1133 |
+| precision_at_k | 0.1727 | 0.0742 | -0.0985 |
+| recall_at_k | 0.7771 | 0.6688 | -0.1083 |
+| mrr_at_k | 0.6736 | 0.5095 | -0.1641 |
+| ndcg_at_k | 0.6912 | 0.5438 | -0.1474 |
+| p50 latency ms | 917.85 | 1722.37 | +804.52 |
+| p95 latency ms | 2067.89 | 2005.89 | -62.00 |
+
+Interpretation:
+- No LLM calls were made; this is retrieval-only evaluation.
+- Sparse BM25 underperforms the dense baseline on full SciFact in this runtime. It is not competitive alone, but it remains useful as a component to interpret hybrid RRF.
