@@ -60,7 +60,7 @@ def test_semantic_chunking_experiment_resolves_runtime_config() -> None:
         overrides={"generation_model_id": "gen-llama-3.1-8b"},
     )
 
-    assert len(specs) == 3
+    assert len(specs) == 12
     assert {spec.chunking_kind for spec in specs} == {"semantic"}
     assert {spec.chunking_model_id for spec in specs} == {
         "emb-bge-small-en-v1.5",
@@ -68,6 +68,8 @@ def test_semantic_chunking_experiment_resolves_runtime_config() -> None:
         "emb-text-embedding-3-large",
     }
     assert {spec.semantic_embedding_provider for spec in specs} == {"fastembed", "openrouter"}
+    assert {spec.semantic_similarity_threshold for spec in specs} == {0.7, 0.85}
+    assert {spec.semantic_min_sentences_per_chunk for spec in specs} == {1, 2}
     assert all(spec.chunk_size == 1024 for spec in specs)
 
 

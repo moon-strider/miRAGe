@@ -17,3 +17,5 @@ chunking_model_id = [
   "emb-text-embedding-3-small",
   "emb-text-embedding-3-large",
 ]
+semantic_similarity_threshold = [0.7, 0.85]
+semantic_min_sentences_per_chunk = [1, 2]

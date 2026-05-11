@@ -88,3 +88,66 @@ def test_semantic_chunker_groups_neighboring_sentences_by_similarity() -> None:
     assert "Apple trees bloom in spring." in chunks[0].text
     assert "Stock markets price future cash flows." in chunks[1].text
     assert "Bond yields react to inflation." in chunks[1].text
+
+
+def test_semantic_chunker_honors_min_sentences_before_split() -> None:
+    document = Document(
+        doc_id="doc-004",
+        title="Semantic min sentences",
+        source="seed://synthetic",
+        text="Alpha one. Beta two. Gamma three.",
+    )
+
+    def embedder(texts: list[str]) -> list[list[float]]:
+        mapping = {
+            "Alpha one.": [1.0, 0.0],
+            "Beta two.": [0.0, 1.0],
+            "Gamma three.": [0.0, 1.0],
+        }
+        return [mapping[text] for text in texts]
+
+    chunker = SemanticChunker(
+        ChunkingConfig(
+            kind="semantic",
+            chunk_size=128,
+            chunk_overlap=0,
+            chunking_model_id="emb-test",
+            semantic_similarity_threshold=0.9,
+            semantic_min_sentences_per_chunk=2,
+        ),
+        embedder=embedder,
+    )
+
+    chunks = chunker.chunk_documents([document])
+
+    assert len(chunks) == 2
+    assert "Alpha one. Beta two." in chunks[0].text
+    assert chunks[1].text == "Gamma three."
+
+
+def test_semantic_chunker_respects_chunk_size_cap() -> None:
+    document = Document(
+        doc_id="doc-005",
+        title="Semantic chunk size",
+        source="seed://synthetic",
+        text="One two three four. Five six seven eight. Nine ten eleven twelve.",
+    )
+
+    def embedder(texts: list[str]) -> list[list[float]]:
+        return [[1.0, 0.0] for _ in texts]
+
+    chunker = SemanticChunker(
+        ChunkingConfig(
+            kind="semantic",
+            chunk_size=6,
+            chunk_overlap=0,
+            chunking_model_id="emb-test",
+            semantic_similarity_threshold=0.1,
+            semantic_min_sentences_per_chunk=1,
+        ),
+        embedder=embedder,
+    )
+
+    chunks = chunker.chunk_documents([document])
+
+    assert len(chunks) == 3
