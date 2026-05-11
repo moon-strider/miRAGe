@@ -123,3 +123,18 @@ This keeps the baseline aligned with the group's main comparison contract while 
 The experiment resolves to three concrete specs, one per generation model.
 All upstream load/store/retrieval settings remain frozen.
 Only the generation model changes across the resolved baseline specs.
+
+
+## Retrieval-only full-dataset results: SciFact, 2026-05-11
+
+Report:
+- `reports/01-rag-foundation/baseline-freeze/2026-05-11__retrieval-only-scifact__baseline-freeze.md`
+
+| dataset | examples | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | p50 ms | p95 ms |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `ds-beir-scifact-v1` | 300 | 0.8000 | 0.1727 | 0.7771 | 0.6736 | 0.6912 | 917.85 | 2067.89 |
+
+Interpretation:
+- This result is retrieval-only: no LLM generation calls were made.
+- The baseline retrieves at least one gold document for 80.00% of SciFact test examples.
+- Recall@k is 0.7771 and NDCG@k is 0.6912, so there is enough headroom for retrieval-side experiments to be meaningful.
