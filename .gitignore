@@ -8,5 +8,6 @@ __pycache__/
 .DS_Store
 runs/
 .hermes/
+PLAN.md
 data/datasets/*/raw/
 data/datasets/*/downloads/
