@@ -31,6 +31,7 @@ just resolve
 just ingest
 just ask "What tool manages Python dependencies?"
 just eval
+just report
 just test
 just lint
 

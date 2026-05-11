@@ -8,7 +8,8 @@ import typer
 
 from mirage.datasets import fetch_all_datasets, fetch_dataset
 from mirage.pipeline import answer_question
-from mirage.runner import describe_spec, persist_resolved_specs, run_eval, run_ingest, select_single_spec
+from mirage.reporting import synthesize_reports
+from mirage.runner import describe_spec, persist_resolved_specs, resolve_specs, run_eval, run_ingest, select_single_spec
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
@@ -71,9 +72,29 @@ def eval(
     experiment: Path = typer.Option(..., "--experiment", exists=True, file_okay=False, dir_okay=True),
     set_values: Optional[List[str]] = typer.Option(None, "--set"),
     reset: bool = typer.Option(False, "--reset", help="Recreate matching store artifacts before evaluation."),
+    report: bool = typer.Option(False, "--report", help="Synthesize markdown report after evaluation."),
+    baseline_id: Optional[str] = typer.Option(None, "--baseline-id"),
 ) -> None:
-    result = run_eval(experiment, overrides=set_values, reset=reset)
+    result = run_eval(
+        experiment,
+        overrides=set_values,
+        reset=reset,
+        synthesize_report=report,
+        baseline_id=baseline_id,
+    )
     typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+@app.command()
+def report(
+    experiment: Path = typer.Option(..., "--experiment", exists=True, file_okay=False, dir_okay=True),
+    set_values: Optional[List[str]] = typer.Option(None, "--set"),
+    baseline_id: Optional[str] = typer.Option(None, "--baseline-id"),
+) -> None:
+    report_paths = [
+        str(path) for path in synthesize_reports(resolve_specs(experiment, set_values), baseline_id=baseline_id)
+    ]
+    typer.echo(json.dumps({"report_paths": report_paths}, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

@@ -2,22 +2,25 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterable, TypeVar
+from typing import Any, Iterable, TypeVar
 
 from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
 
-def read_jsonl(path: str | Path, model: type[T]) -> list[T]:
+def read_jsonl(path: str | Path, model: type[T] | type[dict[str, Any]]) -> list[T] | list[dict[str, Any]]:
     file_path = Path(path)
-    items: list[T] = []
+    items: list[T] | list[dict[str, Any]] = []
     with file_path.open("r", encoding="utf-8") as handle:
         for line in handle:
             line = line.strip()
             if not line:
                 continue
-            items.append(model.model_validate_json(line))
+            if model is dict:
+                items.append(json.loads(line))
+            else:
+                items.append(model.model_validate_json(line))
     return items
 
 

@@ -34,6 +34,9 @@ ask:
 eval:
     uv run mirage eval --experiment {{experiment}}
 
+report:
+    uv run mirage report --experiment {{experiment}}
+
 lint:
     uv run ruff check .
 

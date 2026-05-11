@@ -8,6 +8,7 @@ from mirage.evaluate import evaluate_spec
 from mirage.ingest import ingest_spec
 from mirage.io_utils import write_json
 from mirage.registry import parse_cli_overrides
+from mirage.reporting import synthesize_reports
 
 
 def resolve_specs(experiment_path: str | Path, overrides: list[str] | None = None) -> list[ResolvedSpec]:
@@ -43,6 +44,8 @@ def run_eval(
     *,
     overrides: list[str] | None = None,
     reset: bool = False,
+    synthesize_report: bool = False,
+    baseline_id: str | None = None,
 ) -> dict[str, object]:
     specs = resolve_specs(experiment_path, overrides)
     results: list[dict[str, object]] = []
@@ -53,11 +56,15 @@ def run_eval(
             ingest_spec(spec, reset=reset)
             seen_store_keys.add(store_key)
         results.append(evaluate_spec(spec, reset=reset))
+    report_paths: list[str] = []
+    if synthesize_report:
+        report_paths = [str(path) for path in synthesize_reports(specs, baseline_id=baseline_id)]
     return {
         "experiment": str(experiment_path),
         "resolved_specs": len(specs),
         "evaluated_specs": len(results),
         "results": results,
+        "report_paths": report_paths,
     }
 
 
