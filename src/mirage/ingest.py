@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from time import perf_counter
 
 from qdrant_client import QdrantClient, models
@@ -10,6 +11,7 @@ from mirage.artifacts import ArtifactLayout
 from mirage.chunking import SemanticChunker, SentenceChunker, TokenChunker
 from mirage.config import ChunkingConfig, ResolvedSpec
 from mirage.embeddings import embed_texts
+from mirage.faiss_store import build_faiss_index, load_faiss_index, save_faiss_index
 from mirage.io_utils import read_json, read_jsonl, write_json, write_jsonl
 from mirage.pipeline import _semantic_sentence_embedder
 from mirage.schemas import Chunk, Document
@@ -31,6 +33,10 @@ def _make_client(spec: ResolvedSpec) -> QdrantClient:
             f"Store backend '{spec.store_backend_id}' is marked as {spec.store_backend_runtime_status}."
         )
     return QdrantClient(url=spec.env.qdrant_url)
+
+
+def _faiss_index_path(spec: ResolvedSpec) -> Path:
+    return ArtifactLayout(spec).store_dir() / "index.faiss"
 
 
 def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | SemanticChunker:
@@ -88,6 +94,23 @@ def _create_collection(client: QdrantClient, spec: ResolvedSpec, vector_size: in
     if client.collection_exists(collection_name=collection_name):
         return
     client.create_collection(collection_name=collection_name, vectors_config=vector_params)
+
+
+def _store_faiss_index(
+    spec: ResolvedSpec,
+    *,
+    vectors: list[list[float]],
+    reset: bool,
+) -> None:
+    if spec.store_index_runtime_status != "active":
+        raise NotImplementedError(
+            f"Store index variant '{spec.store_index_variant_id}' is marked as {spec.store_index_runtime_status}."
+        )
+    index_path = _faiss_index_path(spec)
+    if index_path.exists() and not reset:
+        return
+    index = build_faiss_index(spec.store_index_kind, vectors)
+    save_faiss_index(index, index_path)
 
 
 def prepare_documents(spec: ResolvedSpec, *, reset: bool = False) -> tuple[list[Document], dict[str, object]]:
@@ -158,20 +181,37 @@ def ingest_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
 
     layout = ArtifactLayout(spec)
     store_dir = layout.store_dir()
-    client = _make_client(spec)
-    collection_name = layout.collection_name()
     metadata_path = store_dir / "metadata.json"
-    if not reset and metadata_path.exists() and client.collection_exists(collection_name=collection_name):
-        metadata = read_json(metadata_path)
-        return {
-            **metadata,
-            "prepared_dir": prepared_info["prepared_dir"],
-            "chunks_dir": chunk_info["chunks_dir"],
-            "store_dir": str(store_dir),
-            "reused_prepared": prepared_info["reused_prepared"],
-            "reused_chunks": chunk_info["reused_chunks"],
-            "reused_store": True,
-        }
+    if spec.store_backend_kind == "qdrant":
+        client = _make_client(spec)
+        collection_name = layout.collection_name()
+        if not reset and metadata_path.exists() and client.collection_exists(collection_name=collection_name):
+            metadata = read_json(metadata_path)
+            return {
+                **metadata,
+                "prepared_dir": prepared_info["prepared_dir"],
+                "chunks_dir": chunk_info["chunks_dir"],
+                "store_dir": str(store_dir),
+                "reused_prepared": prepared_info["reused_prepared"],
+                "reused_chunks": chunk_info["reused_chunks"],
+                "reused_store": True,
+            }
+    elif spec.store_backend_kind == "faiss":
+        if not reset and metadata_path.exists() and _faiss_index_path(spec).exists():
+            metadata = read_json(metadata_path)
+            return {
+                **metadata,
+                "prepared_dir": prepared_info["prepared_dir"],
+                "chunks_dir": chunk_info["chunks_dir"],
+                "store_dir": str(store_dir),
+                "reused_prepared": prepared_info["reused_prepared"],
+                "reused_chunks": chunk_info["reused_chunks"],
+                "reused_store": True,
+            }
+    else:
+        raise NotImplementedError(
+            f"Store backend '{spec.store_backend_id}' is scaffolded but not implemented in runtime yet."
+        )
 
     vectors, embedding_tokens, embedding_cost_usd = embed_texts(
         provider=spec.store_embedding_provider,
@@ -185,8 +225,17 @@ def ingest_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
     if not vectors:
         raise ValueError("Embedding produced zero vectors")
 
-    _create_collection(client, spec, len(vectors[0]), reset=reset)
-    client.upsert(collection_name=collection_name, points=_build_points(chunks, vectors), wait=True)
+    collection_name = layout.collection_name()
+    if spec.store_backend_kind == "qdrant":
+        client = _make_client(spec)
+        _create_collection(client, spec, len(vectors[0]), reset=reset)
+        client.upsert(collection_name=collection_name, points=_build_points(chunks, vectors), wait=True)
+    elif spec.store_backend_kind == "faiss":
+        _store_faiss_index(spec, vectors=vectors, reset=reset)
+    else:
+        raise NotImplementedError(
+            f"Store backend '{spec.store_backend_id}' is scaffolded but not implemented in runtime yet."
+        )
 
     duration_ms = round((perf_counter() - started) * 1000, 2)
     metadata = {

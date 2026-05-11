@@ -16,4 +16,4 @@ Only cases whose backend runtime status is implemented can be executed.
 ## Runtime status
 
 `qdrant` is active.
-`faiss-local` is scaffolded in registries and overlays but is not implemented in runtime yet.
+`faiss-local` is active for flat inner-product runtime and can be executed.

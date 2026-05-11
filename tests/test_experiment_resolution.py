@@ -111,6 +111,25 @@ def test_agentic_experiment_includes_reranker_axis() -> None:
     assert {spec.reranker_kind for spec in specs} == {"none", "cross-encoder"}
 
 
+def test_store_backend_experiment_includes_faiss_runtime() -> None:
+    specs = load_experiment_specs(
+        "experiments/01-rag-foundation/store-backends",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )
+
+    assert {spec.store_backend_id for spec in specs} == {"qdrant", "faiss-local"}
+    assert {spec.store_backend_runtime_status for spec in specs} == {"active"}
+
+
+def test_store_index_experiment_keeps_active_qdrant_variants() -> None:
+    specs = load_experiment_specs(
+        "experiments/01-rag-foundation/store-index-variants",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )
+
+    assert {spec.store_index_runtime_status for spec in specs} == {"active"}
+
+
 def test_artifact_layout_uses_layered_paths() -> None:
     spec = load_experiment_specs("experiments/01-rag-foundation/baseline-freeze")[0]
     layout = ArtifactLayout(spec)

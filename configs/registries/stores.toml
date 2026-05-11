@@ -6,7 +6,7 @@ runtime_status = "active"
 [store_backends.faiss-local]
 kind = "faiss"
 collection_prefix = "mirage"
-runtime_status = "planned"
+runtime_status = "active"
 
 [store_index_variants.idx-qdrant-hnsw-cosine-default-v1]
 backend_id = "qdrant"
@@ -25,7 +25,7 @@ hnsw_ef_construct = 256
 backend_id = "faiss-local"
 kind = "flat"
 distance = "dot"
-runtime_status = "planned"
+runtime_status = "active"
 
 [store_index_variants.idx-faiss-ivfflat-v1]
 backend_id = "faiss-local"

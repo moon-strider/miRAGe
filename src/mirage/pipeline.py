@@ -4,15 +4,16 @@ from time import perf_counter
 
 from openai import OpenAI
 from qdrant_client import QdrantClient
-from qdrant_client.http import models
 
 from mirage.artifacts import ArtifactLayout
 from mirage.config import ResolvedSpec
 from mirage.embeddings import embed_texts
+from mirage.faiss_store import load_faiss_index, search_faiss_index
+from mirage.io_utils import read_jsonl
 from mirage.metrics import dedupe_preserve_order, extract_citations
 from mirage.reranking import rerank_items
 from mirage.retrieval import rrf_fuse, sparse_search
-from mirage.schemas import AnswerResult, RetrievedItem, RetrievalResult
+from mirage.schemas import AnswerResult, Chunk, RetrievedItem, RetrievalResult
 
 
 def _semantic_sentence_embedder(spec: ResolvedSpec):
@@ -97,6 +98,43 @@ def _scroll_all_qdrant_items(spec: ResolvedSpec) -> list[RetrievedItem]:
     return items
 
 
+def _search_store(
+    spec: ResolvedSpec,
+    query_vector: list[float],
+    *,
+    limit: int,
+) -> list[RetrievedItem]:
+    if spec.store_backend_kind == "qdrant":
+        return _search_qdrant(spec, query_vector, limit=limit)
+    if spec.store_backend_kind == "faiss":
+        chunks_path = ArtifactLayout(spec).chunks_dir() / "chunks.jsonl"
+        chunks = read_jsonl(chunks_path, Chunk)
+        index = load_faiss_index(ArtifactLayout(spec).store_dir() / "index.faiss")
+        return search_faiss_index(index=index, query_vector=query_vector, items=chunks, top_k=limit)
+    raise NotImplementedError(f"Unsupported store backend: {spec.store_backend_kind}")
+
+
+def _scroll_all_store_items(spec: ResolvedSpec) -> list[RetrievedItem]:
+    if spec.store_backend_kind == "qdrant":
+        return _scroll_all_qdrant_items(spec)
+    if spec.store_backend_kind == "faiss":
+        chunks_path = ArtifactLayout(spec).chunks_dir() / "chunks.jsonl"
+        chunks = read_jsonl(chunks_path, Chunk)
+        return [
+            RetrievedItem(
+                chunk_id=chunk.chunk_id,
+                doc_id=chunk.doc_id,
+                title=chunk.title,
+                source=chunk.source,
+                text=chunk.text,
+                score=0.0,
+                order=chunk.order,
+            )
+            for chunk in chunks
+        ]
+    raise NotImplementedError(f"Unsupported store backend: {spec.store_backend_kind}")
+
+
 def retrieve(spec: ResolvedSpec, question: str, qid: str | None = None) -> tuple[RetrievalResult, list[RetrievedItem]]:
     if spec.search_kind not in {"dense", "sparse", "hybrid"}:
         raise NotImplementedError(
@@ -115,12 +153,12 @@ def retrieve(spec: ResolvedSpec, question: str, qid: str | None = None) -> tuple
     dense_limit = spec.search_dense_top_k or spec.top_k
     sparse_limit = spec.search_sparse_top_k or spec.top_k
     if spec.search_kind == "dense":
-        results = _search_qdrant(spec, query_vector, limit=spec.top_k)
+        results = _search_store(spec, query_vector, limit=spec.top_k)
     elif spec.search_kind == "sparse":
-        results = sparse_search(question, _scroll_all_qdrant_items(spec), top_k=spec.top_k)
+        results = sparse_search(question, _scroll_all_store_items(spec), top_k=spec.top_k)
     else:
-        dense_results = _search_qdrant(spec, query_vector, limit=dense_limit)
-        sparse_results = sparse_search(question, _scroll_all_qdrant_items(spec), top_k=sparse_limit)
+        dense_results = _search_store(spec, query_vector, limit=dense_limit)
+        sparse_results = sparse_search(question, _scroll_all_store_items(spec), top_k=sparse_limit)
         results = rrf_fuse([dense_results, sparse_results], top_k=spec.top_k, rrf_k=spec.search_rrf_k)
     results = rerank_items(
         reranker_id=spec.reranker_id,
