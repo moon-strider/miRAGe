@@ -123,3 +123,28 @@ This keeps the baseline aligned with the group's main comparison contract while 
 The experiment resolves to three concrete specs, one per generation model.
 All upstream load/store/retrieval settings remain frozen.
 Only the generation model changes across the resolved baseline specs.
+
+## Actual results: 2026-05-11
+
+Report:
+- `reports/01-rag-foundation/baseline-freeze/2026-05-11__baseline-freeze__vs-baseline-freeze.md`
+
+Build artifacts:
+- documents: 5
+- chunks: 5
+- store embedding tokens: 239
+- build store embedding cost: `$0.000005`
+- ingest duration: `1655.67 ms`
+
+| generation_model_id | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | Exact Match | Token F1 | Citation Hit Rate | p50 ms | p95 ms | mean query cost |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `gen-grok-4-fast` | 1.0000 | 0.2000 | 1.0000 | 1.0000 | 1.0000 | 0.0000 | 0.4405 | 1.0000 | 3788.07 | 4793.09 | `$0.000196` |
+| `gen-llama-3.1-8b` | 1.0000 | 0.2000 | 1.0000 | 1.0000 | 1.0000 | 0.0000 | 0.4500 | 1.0000 | 2010.30 | 2551.16 | `$0.000010` |
+| `gen-minimax-2.7` | 1.0000 | 0.2000 | 1.0000 | 1.0000 | 1.0000 | 0.0000 | 0.1984 | 1.0000 | 3276.63 | 5516.66 | `$0.000264` |
+
+Interpretation:
+- Retrieval is saturated on the small smoke fixture: Hit@k, Recall@k, MRR@k, and NDCG@k are all `1.0000`.
+- Precision@k is `0.2000` because top-k is 5 and each question has one gold document.
+- Exact Match is `0.0000` despite useful answers because generated responses include citations and natural-language wording rather than exact gold strings.
+- Citation Hit Rate is `1.0000`, so all measured generated answers cite gold evidence.
+- `gen-llama-3.1-8b` is the cheapest and fastest baseline generation model in this run.
