@@ -30,3 +30,23 @@ Add after execution:
 - measured retrieval metric deltas
 - latency deltas
 - whether top-k 3 is a viable cheaper retrieval setting
+
+
+## Retrieval-only full-dataset results: SciFact, 2026-05-11
+
+Report:
+- `reports/01-rag-foundation/wave1-dense-topk3/2026-05-11__retrieval-only-scifact__wave1-dense-topk3__vs-baseline-freeze.md`
+
+| metric | baseline | candidate | delta |
+| --- | ---: | ---: | ---: |
+| hit_at_k | 0.8000 | 0.7467 | -0.0533 |
+| precision_at_k | 0.1727 | 0.2644 | +0.0917 |
+| recall_at_k | 0.7771 | 0.7224 | -0.0547 |
+| mrr_at_k | 0.6742 | 0.6611 | -0.0131 |
+| ndcg_at_k | 0.6917 | 0.6669 | -0.0248 |
+| p50 latency ms | 922.37 | 911.00 | -11.37 |
+| p95 latency ms | 1128.58 | 1204.35 | +75.77 |
+
+Interpretation:
+- No LLM calls were made; this is retrieval-only evaluation.
+- Dense top-k 3 improves Precision@k but loses Hit@k, Recall@k, MRR@k, and NDCG@k. The baseline top-k 5 is not obviously over-retrieving on SciFact.
