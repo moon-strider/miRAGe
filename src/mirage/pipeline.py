@@ -4,11 +4,14 @@ from time import perf_counter
 
 from openai import OpenAI
 from qdrant_client import QdrantClient
+from qdrant_client.http import models
 
 from mirage.artifacts import ArtifactLayout
 from mirage.config import ResolvedSpec
 from mirage.embeddings import embed_texts
 from mirage.metrics import dedupe_preserve_order, extract_citations
+from mirage.reranking import rerank_items
+from mirage.retrieval import rrf_fuse, sparse_search
 from mirage.schemas import AnswerResult, RetrievedItem, RetrievalResult
 
 
@@ -37,34 +40,20 @@ def _make_openrouter_client(spec: ResolvedSpec) -> OpenAI:
     return OpenAI(api_key=spec.env.openrouter_api_key, base_url=spec.env.openrouter_base_url)
 
 
-def retrieve(spec: ResolvedSpec, question: str, qid: str | None = None) -> tuple[RetrievalResult, list[RetrievedItem]]:
-    if spec.search_kind != "dense":
-        raise NotImplementedError(
-            f"Search algorithm '{spec.search_algorithm_id}' is scaffolded but not implemented in runtime yet."
-        )
-    if spec.reranker_id != "none":
-        raise NotImplementedError(
-            f"Reranker '{spec.reranker_id}' is scaffolded but not implemented in runtime yet."
-        )
-    started = perf_counter()
-    vectors, query_embedding_tokens, query_embedding_cost_usd = embed_texts(
-        provider=spec.query_embedding_provider,
-        model=spec.query_embedding_model,
-        texts=[question],
-        batch_size=1,
-        env=spec.env,
-        pricing_input_per_1m_tokens_usd=spec.query_embedding_pricing_input_per_1m_tokens_usd,
-    )
-    query_vector = vectors[0]
+def _search_qdrant(
+    spec: ResolvedSpec,
+    query_vector: list[float],
+    *,
+    limit: int,
+) -> list[RetrievedItem]:
     client = _make_qdrant_client(spec)
     collection_name = ArtifactLayout(spec).collection_name()
     hits = client.search(
         collection_name=collection_name,
         query_vector=query_vector,
-        limit=spec.top_k,
+        limit=limit,
         with_payload=True,
     )
-
     results: list[RetrievedItem] = []
     for hit in hits:
         payload = hit.payload or {}
@@ -79,6 +68,68 @@ def retrieve(spec: ResolvedSpec, question: str, qid: str | None = None) -> tuple
                 order=int(payload.get("order", 0)),
             )
         )
+    return results
+
+
+def _scroll_all_qdrant_items(spec: ResolvedSpec) -> list[RetrievedItem]:
+    client = _make_qdrant_client(spec)
+    collection_name = ArtifactLayout(spec).collection_name()
+    points, _ = client.scroll(
+        collection_name=collection_name,
+        limit=100_000,
+        with_payload=True,
+        with_vectors=False,
+    )
+    items: list[RetrievedItem] = []
+    for point in points:
+        payload = point.payload or {}
+        items.append(
+            RetrievedItem(
+                chunk_id=str(payload["chunk_id"]),
+                doc_id=str(payload["doc_id"]),
+                title=str(payload.get("title", "")),
+                source=str(payload.get("source", "")),
+                text=str(payload.get("text", "")),
+                score=0.0,
+                order=int(payload.get("order", 0)),
+            )
+        )
+    return items
+
+
+def retrieve(spec: ResolvedSpec, question: str, qid: str | None = None) -> tuple[RetrievalResult, list[RetrievedItem]]:
+    if spec.search_kind not in {"dense", "sparse", "hybrid"}:
+        raise NotImplementedError(
+            f"Search algorithm '{spec.search_algorithm_id}' is scaffolded but not implemented in runtime yet."
+        )
+    started = perf_counter()
+    vectors, query_embedding_tokens, query_embedding_cost_usd = embed_texts(
+        provider=spec.query_embedding_provider,
+        model=spec.query_embedding_model,
+        texts=[question],
+        batch_size=1,
+        env=spec.env,
+        pricing_input_per_1m_tokens_usd=spec.query_embedding_pricing_input_per_1m_tokens_usd,
+    )
+    query_vector = vectors[0]
+    dense_limit = spec.search_dense_top_k or spec.top_k
+    sparse_limit = spec.search_sparse_top_k or spec.top_k
+    if spec.search_kind == "dense":
+        results = _search_qdrant(spec, query_vector, limit=spec.top_k)
+    elif spec.search_kind == "sparse":
+        results = sparse_search(question, _scroll_all_qdrant_items(spec), top_k=spec.top_k)
+    else:
+        dense_results = _search_qdrant(spec, query_vector, limit=dense_limit)
+        sparse_results = sparse_search(question, _scroll_all_qdrant_items(spec), top_k=sparse_limit)
+        results = rrf_fuse([dense_results, sparse_results], top_k=spec.top_k, rrf_k=spec.search_rrf_k)
+    results = rerank_items(
+        reranker_id=spec.reranker_id,
+        reranker_kind=spec.reranker_kind,
+        reranker_model=spec.reranker_model,
+        reranker_batch_size=spec.reranker_batch_size,
+        question=question,
+        items=results,
+    )
 
     retrieval_latency_ms = round((perf_counter() - started) * 1000, 2)
     retrieval = RetrievalResult(

@@ -4,7 +4,7 @@ This experiment varies query-time search configuration.
 
 ## Moving variables
 
-- `search_algorithm_id`
+- `search_algorithm_id` (`dense`, `sparse`, `hybrid-rrf`)
 
 ## Fixed variables
 

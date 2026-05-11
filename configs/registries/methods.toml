@@ -49,6 +49,21 @@ top_k = 20
 mrr_depth = 20
 distance = "cosine"
 
+[search_algorithms.search-sparse-bm25-topk10-v1]
+kind = "sparse"
+top_k = 10
+mrr_depth = 10
+distance = "cosine"
+
+[search_algorithms.search-hybrid-rrf-topk10-v1]
+kind = "hybrid"
+top_k = 10
+mrr_depth = 10
+distance = "cosine"
+dense_top_k = 10
+sparse_top_k = 10
+rrf_k = 60
+
 [prompt_variants.prompt-grounded-citations-v1]
 system_prompt = """
 You answer only from the provided context.
@@ -81,6 +96,11 @@ Context:
 
 [rerankers.none]
 kind = "none"
+
+[rerankers.rerank-minilm-l6-v1]
+kind = "cross-encoder"
+model = "Xenova/ms-marco-MiniLM-L-6-v2"
+batch_size = 32
 
 [tool_policies.none]
 kind = "none"

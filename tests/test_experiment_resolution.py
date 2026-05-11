@@ -85,6 +85,32 @@ def test_embedding_experiment_uses_coupled_cases() -> None:
     }
 
 
+def test_search_experiment_includes_dense_sparse_and_hybrid_variants() -> None:
+    specs = load_experiment_specs(
+        "experiments/01-rag-foundation/inference-search",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )
+
+    assert {spec.search_kind for spec in specs} == {"dense", "sparse", "hybrid"}
+    assert {spec.search_algorithm_id for spec in specs} == {
+        "search-dense-topk5-v1",
+        "search-dense-topk10-v1",
+        "search-dense-topk20-v1",
+        "search-sparse-bm25-topk10-v1",
+        "search-hybrid-rrf-topk10-v1",
+    }
+
+
+def test_agentic_experiment_includes_reranker_axis() -> None:
+    specs = load_experiment_specs(
+        "experiments/01-rag-foundation/inference-agentic",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )
+
+    assert {spec.reranker_id for spec in specs} == {"none", "rerank-minilm-l6-v1"}
+    assert {spec.reranker_kind for spec in specs} == {"none", "cross-encoder"}
+
+
 def test_artifact_layout_uses_layered_paths() -> None:
     spec = load_experiment_specs("experiments/01-rag-foundation/baseline-freeze")[0]
     layout = ArtifactLayout(spec)

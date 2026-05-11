@@ -108,6 +108,9 @@ class SearchAlgorithmEntry(BaseModel):
     top_k: int
     mrr_depth: int
     distance: str = "cosine"
+    dense_top_k: int | None = None
+    sparse_top_k: int | None = None
+    rrf_k: int = 60
 
 
 class PromptVariantEntry(BaseModel):
@@ -117,6 +120,8 @@ class PromptVariantEntry(BaseModel):
 
 class RerankerEntry(BaseModel):
     kind: str
+    model: str | None = None
+    batch_size: int = 64
 
 
 class ToolPolicyEntry(BaseModel):
@@ -179,7 +184,13 @@ class ResolvedSpec(BaseModel):
     search_kind: str
     top_k: int
     mrr_depth: int
+    search_dense_top_k: int | None = None
+    search_sparse_top_k: int | None = None
+    search_rrf_k: int = 60
     reranker_id: str
+    reranker_kind: str
+    reranker_model: str | None = None
+    reranker_batch_size: int = 64
     prompt_variant_id: str
     prompt_system_prompt: str
     prompt_user_template: str
@@ -288,6 +299,7 @@ def _build_resolved_spec(
     prompt = registries.prompt_variants[values["prompt_variant_id"]]
     if values["reranker_id"] not in registries.rerankers:
         raise ValueError(f"Unknown reranker_id: {values['reranker_id']}")
+    reranker = registries.rerankers[values["reranker_id"]]
     if values["tool_policy_id"] not in registries.tool_policies:
         raise ValueError(f"Unknown tool_policy_id: {values['tool_policy_id']}")
     generation = registries.generation_models[values["generation_model_id"]]
@@ -366,7 +378,13 @@ def _build_resolved_spec(
         search_kind=search.kind,
         top_k=search.top_k,
         mrr_depth=search.mrr_depth,
+        search_dense_top_k=search.dense_top_k,
+        search_sparse_top_k=search.sparse_top_k,
+        search_rrf_k=search.rrf_k,
         reranker_id=values["reranker_id"],
+        reranker_kind=reranker.kind,
+        reranker_model=reranker.model,
+        reranker_batch_size=reranker.batch_size,
         prompt_variant_id=values["prompt_variant_id"],
         prompt_system_prompt=_format_template(prompt.system_prompt.strip(), insufficient_context_response),
         prompt_user_template=prompt.user_template.strip(),

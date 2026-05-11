@@ -21,3 +21,7 @@ tool_policy_id = [
   "tool-react-v1",
   "tool-context-expansion-v1",
 ]
+reranker_id = [
+  "none",
+  "rerank-minilm-l6-v1",
+]

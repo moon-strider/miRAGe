@@ -6,6 +6,7 @@ rest of the retrieval stack fixed.
 ## Moving variables
 
 - `tool_policy_id`
+- `reranker_id`
 
 ## Fixed variables
 
