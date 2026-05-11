@@ -63,7 +63,7 @@ chunking_variant_id = "chunk-semantic-v1"
 query_embedding_model_id = "emb-text-embedding-3-small"
 
 [experiments.matrix]
-chunking_model_id = ["emb-text-embedding-3-small", "emb-text-embedding-3-large", "emb-text-embedding-ada-002", "emb-qwen3-embedding-4b", "emb-qwen3-embedding-8b", "emb-mistral-embed-2312"]
+chunking_model_id = ["emb-text-embedding-3-small", "emb-text-embedding-3-large", "emb-text-embedding-ada-002", "emb-pplx-embed-v1-0.6b", "emb-pplx-embed-v1-4b", "emb-gemini-embedding-001", "emb-mistral-embed-2312"]
 semantic_similarity_threshold = [0.7, 0.85]
 semantic_min_sentences_per_chunk = [1, 2]
 
@@ -101,12 +101,16 @@ store_embedding_model_id = "emb-text-embedding-ada-002"
 query_embedding_model_id = "emb-text-embedding-ada-002"
 
 [[experiments.cases]]
-store_embedding_model_id = "emb-qwen3-embedding-4b"
-query_embedding_model_id = "emb-qwen3-embedding-4b"
+store_embedding_model_id = "emb-pplx-embed-v1-0.6b"
+query_embedding_model_id = "emb-pplx-embed-v1-0.6b"
 
 [[experiments.cases]]
-store_embedding_model_id = "emb-qwen3-embedding-8b"
-query_embedding_model_id = "emb-qwen3-embedding-8b"
+store_embedding_model_id = "emb-pplx-embed-v1-4b"
+query_embedding_model_id = "emb-pplx-embed-v1-4b"
+
+[[experiments.cases]]
+store_embedding_model_id = "emb-gemini-embedding-001"
+query_embedding_model_id = "emb-gemini-embedding-001"
 
 [[experiments.cases]]
 store_embedding_model_id = "emb-mistral-embed-2312"

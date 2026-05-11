@@ -57,3 +57,21 @@ provider = "openrouter"
 model = "mistralai/mistral-embed-2312"
 batch_size = 32
 pricing_input_per_1m_tokens_usd = 0.10
+
+[embedding_models."emb-pplx-embed-v1-0.6b"]
+provider = "openrouter"
+model = "perplexity/pplx-embed-v1-0.6b"
+batch_size = 32
+pricing_input_per_1m_tokens_usd = 0.004
+
+[embedding_models."emb-pplx-embed-v1-4b"]
+provider = "openrouter"
+model = "perplexity/pplx-embed-v1-4b"
+batch_size = 16
+pricing_input_per_1m_tokens_usd = 0.03
+
+[embedding_models."emb-gemini-embedding-001"]
+provider = "openrouter"
+model = "google/gemini-embedding-001"
+batch_size = 16
+pricing_input_per_1m_tokens_usd = 0.15

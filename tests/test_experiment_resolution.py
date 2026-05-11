@@ -112,14 +112,15 @@ def test_semantic_chunking_experiment_resolves_runtime_config() -> None:
         overrides={"study_experiment_id": "semantic-chunking", "generation_model_id": "gen-llama-3.1-8b"},
     )
 
-    assert len(specs) == 24
+    assert len(specs) == 28
     assert {spec.chunking_kind for spec in specs} == {"semantic"}
     assert {spec.chunking_model_id for spec in specs} == {
         "emb-text-embedding-3-small",
         "emb-text-embedding-3-large",
         "emb-text-embedding-ada-002",
-        "emb-qwen3-embedding-4b",
-        "emb-qwen3-embedding-8b",
+        "emb-pplx-embed-v1-0.6b",
+        "emb-pplx-embed-v1-4b",
+        "emb-gemini-embedding-001",
         "emb-mistral-embed-2312",
     }
     assert {spec.semantic_embedding_provider for spec in specs} == {"openrouter"}
@@ -139,8 +140,9 @@ def test_embedding_experiment_uses_coupled_cases() -> None:
         ("emb-text-embedding-3-small", "emb-text-embedding-3-small"),
         ("emb-text-embedding-3-large", "emb-text-embedding-3-large"),
         ("emb-text-embedding-ada-002", "emb-text-embedding-ada-002"),
-        ("emb-qwen3-embedding-4b", "emb-qwen3-embedding-4b"),
-        ("emb-qwen3-embedding-8b", "emb-qwen3-embedding-8b"),
+        ("emb-pplx-embed-v1-0.6b", "emb-pplx-embed-v1-0.6b"),
+        ("emb-pplx-embed-v1-4b", "emb-pplx-embed-v1-4b"),
+        ("emb-gemini-embedding-001", "emb-gemini-embedding-001"),
         ("emb-mistral-embed-2312", "emb-mistral-embed-2312"),
     }
 

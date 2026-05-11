@@ -151,8 +151,9 @@ def test_synthesize_reports_writes_candidate_reports_for_variant_groups(artifact
         "emb-text-embedding-3-small": 0.7,
         "emb-text-embedding-3-large": 0.9,
         "emb-text-embedding-ada-002": 0.6,
-        "emb-qwen3-embedding-4b": 0.8,
-        "emb-qwen3-embedding-8b": 0.85,
+        "emb-pplx-embed-v1-0.6b": 0.8,
+        "emb-pplx-embed-v1-4b": 0.85,
+        "emb-gemini-embedding-001": 0.82,
         "emb-mistral-embed-2312": 0.75,
     }
     for spec in specs:
@@ -164,12 +165,13 @@ def test_synthesize_reports_writes_candidate_reports_for_variant_groups(artifact
         baseline_id="emb-text-embedding-3-small",
     )
 
-    assert len(report_paths) == 5
+    assert len(report_paths) == 6
     contents = [path.read_text(encoding="utf-8") for path in report_paths]
     assert any("candidate_id: emb-text-embedding-3-large" in content for content in contents)
     assert any("candidate_id: emb-text-embedding-ada-002" in content for content in contents)
-    assert any("candidate_id: emb-qwen3-embedding-4b" in content for content in contents)
-    assert any("candidate_id: emb-qwen3-embedding-8b" in content for content in contents)
+    assert any("candidate_id: emb-pplx-embed-v1-0.6b" in content for content in contents)
+    assert any("candidate_id: emb-pplx-embed-v1-4b" in content for content in contents)
+    assert any("candidate_id: emb-gemini-embedding-001" in content for content in contents)
     assert any("candidate_id: emb-mistral-embed-2312" in content for content in contents)
     assert all("baseline_id: emb-text-embedding-3-small" in content for content in contents)
 
