@@ -14,6 +14,7 @@ from mirage.embeddings import embed_texts
 from mirage.faiss_store import build_faiss_index, load_faiss_index, save_faiss_index
 from mirage.io_utils import read_json, read_jsonl, write_json, write_jsonl
 from mirage.pipeline import _semantic_sentence_embedder
+from mirage.preprocessing import apply_preprocessing
 from mirage.schemas import Chunk, Document
 
 _DISTANCE_MAP = {
@@ -136,6 +137,9 @@ def prepare_documents(spec: ResolvedSpec, *, reset: bool = False) -> tuple[list[
     documents = load_documents_for_spec(spec)
     if not documents:
         raise ValueError(f"No documents found for dataset adapter '{spec.dataset_adapter_id}'")
+    documents = apply_preprocessing(spec.preprocessing_kind, documents)
+    if not documents:
+        raise ValueError(f"Preprocessing variant '{spec.preprocessing_variant_id}' produced zero documents")
 
     prepared_rows = [document.model_dump(mode="json") for document in documents]
     write_jsonl(prepared_path, prepared_rows)

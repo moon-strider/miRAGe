@@ -116,6 +116,19 @@ def test_prompting_experiment_includes_four_grounded_prompt_variants() -> None:
     }
 
 
+def test_load_preprocessing_experiment_exposes_three_runtime_variants() -> None:
+    specs = load_experiment_specs(
+        "experiments/01-rag-foundation/load-preprocessing",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )
+
+    assert {spec.preprocessing_variant_id for spec in specs} == {
+        "prep-basic-clean-v1",
+        "prep-basic-clean-dedupe-v1",
+        "prep-basic-clean-metadata-v1",
+    }
+
+
 def test_agentic_experiment_includes_reranker_axis() -> None:
     specs = load_experiment_specs(
         "experiments/01-rag-foundation/inference-agentic",
