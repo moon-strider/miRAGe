@@ -102,6 +102,20 @@ def test_search_experiment_includes_dense_sparse_and_hybrid_variants() -> None:
     }
 
 
+def test_prompting_experiment_includes_four_grounded_prompt_variants() -> None:
+    specs = load_experiment_specs(
+        "experiments/01-rag-foundation/inference-prompting",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )
+
+    assert {spec.prompt_variant_id for spec in specs} == {
+        "prompt-grounded-citations-v1",
+        "prompt-brief-grounded-v1",
+        "prompt-evidence-first-v1",
+        "prompt-strict-abstain-v1",
+    }
+
+
 def test_agentic_experiment_includes_reranker_axis() -> None:
     specs = load_experiment_specs(
         "experiments/01-rag-foundation/inference-agentic",

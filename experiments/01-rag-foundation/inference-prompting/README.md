@@ -5,6 +5,10 @@ This experiment varies prompt protocol while leaving retrieval and storage fixed
 ## Moving variables
 
 - `prompt_variant_id`
+  - `prompt-grounded-citations-v1`: default grounded answer with citations
+  - `prompt-brief-grounded-v1`: same grounding constraints with brevity bias
+  - `prompt-evidence-first-v1`: forces an explicit evidence section before the answer
+  - `prompt-strict-abstain-v1`: maximizes abstention strictness when support is weak
 
 ## Fixed variables
 

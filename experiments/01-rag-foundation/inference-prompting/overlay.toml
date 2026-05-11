@@ -18,4 +18,6 @@ search_algorithm_id = "search-dense-topk5-v1"
 prompt_variant_id = [
   "prompt-grounded-citations-v1",
   "prompt-brief-grounded-v1",
+  "prompt-evidence-first-v1",
+  "prompt-strict-abstain-v1",
 ]

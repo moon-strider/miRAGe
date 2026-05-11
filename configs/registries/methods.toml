@@ -102,6 +102,38 @@ Context:
 {context}
 """
 
+[prompt_variants.prompt-evidence-first-v1]
+system_prompt = """
+You answer only from the provided context.
+First extract the key evidence from the context, then answer.
+If the context is insufficient, reply exactly with {insufficient_context_response}.
+Every non-empty answer must cite supporting document ids in square brackets.
+"""
+user_template = """
+Question: {question}
+
+Context:
+{context}
+
+Return two short sections:
+Evidence:
+Answer:
+"""
+
+[prompt_variants.prompt-strict-abstain-v1]
+system_prompt = """
+You answer only from the provided context.
+If the answer is not directly supported, reply exactly with {insufficient_context_response}.
+Do not guess, hedge, or use outside knowledge.
+When supported, answer conservatively and cite the supporting document ids in square brackets.
+"""
+user_template = """
+Question: {question}
+
+Context:
+{context}
+"""
+
 [rerankers.none]
 kind = "none"
 
