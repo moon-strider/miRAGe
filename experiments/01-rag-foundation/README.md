@@ -37,7 +37,7 @@ records at runtime; no repository-local normalized benchmark copies are stored.
 
 ## Experiment directories
 
-- `baseline-freeze/`
+- `baseline-freeze/` — executable benchmark baseline with parameter-by-parameter rationale
 - `load-preprocessing/`
 - `load-deterministic-chunking/`
 - `load-semantic-chunking/`

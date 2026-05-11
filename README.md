@@ -6,6 +6,10 @@ The repository is designed for repeatable comparison of preprocessing, chunking,
 embedding models, storage backends, index settings, search strategies,
 prompting methods, tool-use policies, generation models, and dataset regimes.
 
+The executable benchmark baseline is frozen under
+`experiments/01-rag-foundation/baseline-freeze/`.
+Its README explains and justifies every baseline parameter choice.
+
 The baseline experiment path uses OpenRouter-hosted `openai/text-embedding-3-small`
 for both store-time and query-time embeddings, and uses the three pinned generation
 models defined in the experiment registries.
