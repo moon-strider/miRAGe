@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+import httpx
 import tiktoken
 from fastembed import TextEmbedding
 from openai import OpenAI
@@ -21,7 +22,8 @@ def estimate_token_count(texts: Iterable[str]) -> int:
 def _make_openrouter_client(env: EnvironmentSettings) -> OpenAI:
     if not env.openrouter_api_key:
         raise RuntimeError("OPENROUTER_API_KEY is required for remote embedding or generation")
-    return OpenAI(api_key=env.openrouter_api_key, base_url=env.openrouter_base_url)
+    http_client = httpx.Client(follow_redirects=True)
+    return OpenAI(api_key=env.openrouter_api_key, base_url=env.openrouter_base_url, http_client=http_client)
 
 
 def embed_texts(

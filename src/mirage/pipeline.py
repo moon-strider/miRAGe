@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from time import perf_counter
 
+import httpx
 from openai import OpenAI
 from qdrant_client import QdrantClient
 
@@ -38,7 +39,8 @@ def _make_qdrant_client(spec: ResolvedSpec) -> QdrantClient:
 def _make_openrouter_client(spec: ResolvedSpec) -> OpenAI:
     if not spec.env.openrouter_api_key:
         raise RuntimeError("OPENROUTER_API_KEY is required for remote embedding or generation")
-    return OpenAI(api_key=spec.env.openrouter_api_key, base_url=spec.env.openrouter_base_url)
+    http_client = httpx.Client(follow_redirects=True)
+    return OpenAI(api_key=spec.env.openrouter_api_key, base_url=spec.env.openrouter_base_url, http_client=http_client)
 
 
 def _search_qdrant(
