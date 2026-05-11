@@ -1,0 +1,12 @@
+[experiment]
+group_id = "01-rag-foundation"
+experiment_id = "wave1-faiss-flat"
+
+[extends]
+load = "token-default"
+store = "qdrant-default"
+inference = "simple-rag"
+
+[fixed]
+store_backend_id = "faiss-local"
+store_index_variant_id = "idx-faiss-flat-ip-v1"
