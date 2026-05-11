@@ -47,5 +47,10 @@ records at runtime; no repository-local normalized benchmark copies are stored.
 - `inference-search/`
 - `inference-prompting/`
 - `inference-agentic/`
+- `wave1-dense-topk10/` — wider dense retrieval depth against the baseline
+- `wave1-hybrid-rrf/` — hybrid sparse+dense retrieval against the baseline
+- `wave1-rerank-jina-tiny/` — lightweight reranking on top of a wider dense pool
+- `wave1-semantic-chunking/` — tuned semantic chunking against the token baseline
+- `wave1-tool-context-expansion/` — bounded second-pass retrieval against the baseline
 
 Some experiment directories may describe variants that are already defined in registries but not yet executable in runtime. Their `README.md` files must state that status explicitly.

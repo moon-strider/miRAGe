@@ -18,6 +18,39 @@ def test_baseline_experiment_resolves_three_generation_specs() -> None:
     assert {spec.query_embedding_model_id for spec in specs} == {"emb-text-embedding-3-small"}
 
 
+def test_wave1_experiment_directories_resolve_expected_axes() -> None:
+    topk10 = load_experiment_specs(
+        "experiments/01-rag-foundation/wave1-dense-topk10",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )[0]
+    hybrid = load_experiment_specs(
+        "experiments/01-rag-foundation/wave1-hybrid-rrf",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )[0]
+    rerank = load_experiment_specs(
+        "experiments/01-rag-foundation/wave1-rerank-jina-tiny",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )[0]
+    semantic = load_experiment_specs(
+        "experiments/01-rag-foundation/wave1-semantic-chunking",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )[0]
+    tools = load_experiment_specs(
+        "experiments/01-rag-foundation/wave1-tool-context-expansion",
+        overrides={"generation_model_id": "gen-llama-3.1-8b"},
+    )[0]
+
+    assert topk10.search_algorithm_id == "search-dense-topk10-v1"
+    assert hybrid.search_algorithm_id == "search-hybrid-rrf-topk10-v1"
+    assert rerank.search_algorithm_id == "search-dense-topk10-v1"
+    assert rerank.reranker_id == "rerank-jina-tiny-v1"
+    assert semantic.chunking_kind == "semantic"
+    assert semantic.chunking_model_id == "emb-text-embedding-3-small"
+    assert semantic.semantic_similarity_threshold == 0.85
+    assert semantic.semantic_min_sentences_per_chunk == 2
+    assert tools.tool_policy_id == "tool-context-expansion-v1"
+
+
 def test_external_dataset_registry_resolves_adapter_roots() -> None:
     specs = load_experiment_specs(
         "experiments/01-rag-foundation/baseline-freeze",

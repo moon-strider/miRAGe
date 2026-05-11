@@ -1,0 +1,12 @@
+[experiment]
+group_id = "01-rag-foundation"
+experiment_id = "wave1-rerank-jina-tiny"
+
+[extends]
+load = "token-default"
+store = "qdrant-default"
+inference = "simple-rag"
+
+[fixed]
+search_algorithm_id = "search-dense-topk10-v1"
+reranker_id = "rerank-jina-tiny-v1"

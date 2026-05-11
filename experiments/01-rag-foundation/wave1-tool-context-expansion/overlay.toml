@@ -1,0 +1,11 @@
+[experiment]
+group_id = "01-rag-foundation"
+experiment_id = "wave1-tool-context-expansion"
+
+[extends]
+load = "token-default"
+store = "qdrant-default"
+inference = "simple-rag"
+
+[fixed]
+tool_policy_id = "tool-context-expansion-v1"
