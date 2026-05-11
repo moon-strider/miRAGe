@@ -30,7 +30,7 @@ _PRIMARY_AXIS_BY_EXPERIMENT = {
 _DEFAULT_BASELINE_BY_EXPERIMENT = {
     "load-deterministic-chunking": "chunk-token-1024-128-v1",
     "semantic-chunking": None,
-    "store-embedding-models": "emb-bge-small-en-v1.5",
+    "store-embedding-models": "emb-text-embedding-3-small",
     "store-index-variants": "idx-qdrant-hnsw-cosine-default-v1",
     "store-backends": "qdrant",
     "inference-search": "search-dense-topk5-v1",

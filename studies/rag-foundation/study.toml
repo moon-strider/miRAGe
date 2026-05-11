@@ -4,8 +4,8 @@ mode = "retrieval-only"
 
 [baseline]
 id = "baseline"
-dataset_id = "ds-docs-v1"
-evalset_id = "ev-dev-v1"
+dataset_id = "ds-beir-scifact-v1"
+evalset_id = "ev-beir-scifact-v1"
 preprocessing_variant_id = "prep-basic-clean-v1"
 chunking_variant_id = "chunk-token-1024-128-v1"
 chunking_model_id = "none"
@@ -60,10 +60,10 @@ reranker_id = "rerank-jina-tiny-v1"
 [[experiments]]
 id = "semantic-chunking"
 chunking_variant_id = "chunk-semantic-v1"
-query_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-text-embedding-3-small"
 
 [experiments.matrix]
-chunking_model_id = ["emb-bge-small-en-v1.5", "emb-text-embedding-3-small", "emb-text-embedding-3-large"]
+chunking_model_id = ["emb-text-embedding-3-small", "emb-text-embedding-3-large", "emb-text-embedding-ada-002", "emb-qwen3-embedding-4b", "emb-qwen3-embedding-8b", "emb-mistral-embed-2312"]
 semantic_similarity_threshold = [0.7, 0.85]
 semantic_min_sentences_per_chunk = [1, 2]
 
@@ -73,7 +73,7 @@ tool_policy_id = "tool-context-expansion-v1"
 
 [[experiments]]
 id = "load-preprocessing"
-query_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-text-embedding-3-small"
 
 [experiments.matrix]
 preprocessing_variant_id = ["prep-basic-clean-v1", "prep-basic-clean-dedupe-v1", "prep-basic-clean-metadata-v1"]
@@ -89,10 +89,6 @@ chunking_variant_id = ["chunk-token-1024-128-v1", "chunk-token-768-128-v1", "chu
 id = "store-embedding-models"
 
 [[experiments.cases]]
-store_embedding_model_id = "emb-bge-small-en-v1.5"
-query_embedding_model_id = "emb-bge-small-en-v1.5"
-
-[[experiments.cases]]
 store_embedding_model_id = "emb-text-embedding-3-small"
 query_embedding_model_id = "emb-text-embedding-3-small"
 
@@ -100,18 +96,34 @@ query_embedding_model_id = "emb-text-embedding-3-small"
 store_embedding_model_id = "emb-text-embedding-3-large"
 query_embedding_model_id = "emb-text-embedding-3-large"
 
+[[experiments.cases]]
+store_embedding_model_id = "emb-text-embedding-ada-002"
+query_embedding_model_id = "emb-text-embedding-ada-002"
+
+[[experiments.cases]]
+store_embedding_model_id = "emb-qwen3-embedding-4b"
+query_embedding_model_id = "emb-qwen3-embedding-4b"
+
+[[experiments.cases]]
+store_embedding_model_id = "emb-qwen3-embedding-8b"
+query_embedding_model_id = "emb-qwen3-embedding-8b"
+
+[[experiments.cases]]
+store_embedding_model_id = "emb-mistral-embed-2312"
+query_embedding_model_id = "emb-mistral-embed-2312"
+
 [[experiments]]
 id = "store-index-variants"
-store_embedding_model_id = "emb-bge-small-en-v1.5"
-query_embedding_model_id = "emb-bge-small-en-v1.5"
+store_embedding_model_id = "emb-text-embedding-3-small"
+query_embedding_model_id = "emb-text-embedding-3-small"
 
 [experiments.matrix]
 store_index_variant_id = ["idx-qdrant-hnsw-cosine-default-v1", "idx-qdrant-hnsw-cosine-hi-ef-v1"]
 
 [[experiments]]
 id = "store-backends"
-store_embedding_model_id = "emb-bge-small-en-v1.5"
-query_embedding_model_id = "emb-bge-small-en-v1.5"
+store_embedding_model_id = "emb-text-embedding-3-small"
+query_embedding_model_id = "emb-text-embedding-3-small"
 
 [[experiments.cases]]
 store_backend_id = "qdrant"
@@ -123,16 +135,16 @@ store_index_variant_id = "idx-faiss-flat-ip-v1"
 
 [[experiments]]
 id = "inference-search"
-store_embedding_model_id = "emb-bge-small-en-v1.5"
-query_embedding_model_id = "emb-bge-small-en-v1.5"
+store_embedding_model_id = "emb-text-embedding-3-small"
+query_embedding_model_id = "emb-text-embedding-3-small"
 
 [experiments.matrix]
 search_algorithm_id = ["search-dense-topk5-v1", "search-dense-topk10-v1", "search-dense-topk20-v1", "search-sparse-bm25-topk10-v1", "search-hybrid-rrf-topk10-v1", "search-dense-mmr-topk10-v1"]
 
 [[experiments]]
 id = "inference-prompting"
-store_embedding_model_id = "emb-bge-small-en-v1.5"
-query_embedding_model_id = "emb-bge-small-en-v1.5"
+store_embedding_model_id = "emb-text-embedding-3-small"
+query_embedding_model_id = "emb-text-embedding-3-small"
 search_algorithm_id = "search-dense-topk5-v1"
 
 [experiments.matrix]
@@ -140,8 +152,8 @@ prompt_variant_id = ["prompt-grounded-citations-v1", "prompt-brief-grounded-v1",
 
 [[experiments]]
 id = "inference-agentic"
-store_embedding_model_id = "emb-bge-small-en-v1.5"
-query_embedding_model_id = "emb-bge-small-en-v1.5"
+store_embedding_model_id = "emb-text-embedding-3-small"
+query_embedding_model_id = "emb-text-embedding-3-small"
 search_algorithm_id = "search-dense-topk5-v1"
 prompt_variant_id = "prompt-grounded-citations-v1"
 

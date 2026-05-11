@@ -148,9 +148,12 @@ def test_synthesize_reports_writes_candidate_reports_for_variant_groups(artifact
         overrides={"study_experiment_id": "store-embedding-models"},
     )
     values = {
-        "emb-bge-small-en-v1.5": 0.5,
         "emb-text-embedding-3-small": 0.7,
         "emb-text-embedding-3-large": 0.9,
+        "emb-text-embedding-ada-002": 0.6,
+        "emb-qwen3-embedding-4b": 0.8,
+        "emb-qwen3-embedding-8b": 0.85,
+        "emb-mistral-embed-2312": 0.75,
     }
     for spec in specs:
         _write_eval_artifacts(spec, values[spec.store_embedding_model_id])
@@ -158,14 +161,17 @@ def test_synthesize_reports_writes_candidate_reports_for_variant_groups(artifact
     report_paths = synthesize_reports(
         specs,
         reports_root=artifact_root / "study-reports",
-        baseline_id="emb-bge-small-en-v1.5",
+        baseline_id="emb-text-embedding-3-small",
     )
 
-    assert len(report_paths) == 2
+    assert len(report_paths) == 5
     contents = [path.read_text(encoding="utf-8") for path in report_paths]
-    assert any("candidate_id: emb-text-embedding-3-small" in content for content in contents)
     assert any("candidate_id: emb-text-embedding-3-large" in content for content in contents)
-    assert all("baseline_id: emb-bge-small-en-v1.5" in content for content in contents)
+    assert any("candidate_id: emb-text-embedding-ada-002" in content for content in contents)
+    assert any("candidate_id: emb-qwen3-embedding-4b" in content for content in contents)
+    assert any("candidate_id: emb-qwen3-embedding-8b" in content for content in contents)
+    assert any("candidate_id: emb-mistral-embed-2312" in content for content in contents)
+    assert all("baseline_id: emb-text-embedding-3-small" in content for content in contents)
 
 
 def test_synthesize_reports_writes_wave1_report_against_frozen_baseline(artifact_root: Path) -> None:

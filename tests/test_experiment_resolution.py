@@ -12,8 +12,8 @@ def test_baseline_experiment_resolves_three_generation_specs() -> None:
         "gen-minimax-2.7",
     }
     assert {spec.chunking_model_id for spec in specs} == {"none"}
-    assert {spec.dataset_adapter_id for spec in specs} == {"jsonl"}
-    assert {spec.eval_adapter_id for spec in specs} == {"jsonl"}
+    assert {spec.dataset_adapter_id for spec in specs} == {"scifact"}
+    assert {spec.eval_adapter_id for spec in specs} == {"scifact"}
     assert {spec.store_embedding_model_id for spec in specs} == {"emb-text-embedding-3-small"}
     assert {spec.query_embedding_model_id for spec in specs} == {"emb-text-embedding-3-small"}
     assert {spec.artifacts_dir for spec in specs} == {"artifacts"}
@@ -112,14 +112,17 @@ def test_semantic_chunking_experiment_resolves_runtime_config() -> None:
         overrides={"study_experiment_id": "semantic-chunking", "generation_model_id": "gen-llama-3.1-8b"},
     )
 
-    assert len(specs) == 12
+    assert len(specs) == 24
     assert {spec.chunking_kind for spec in specs} == {"semantic"}
     assert {spec.chunking_model_id for spec in specs} == {
-        "emb-bge-small-en-v1.5",
         "emb-text-embedding-3-small",
         "emb-text-embedding-3-large",
+        "emb-text-embedding-ada-002",
+        "emb-qwen3-embedding-4b",
+        "emb-qwen3-embedding-8b",
+        "emb-mistral-embed-2312",
     }
-    assert {spec.semantic_embedding_provider for spec in specs} == {"fastembed", "openrouter"}
+    assert {spec.semantic_embedding_provider for spec in specs} == {"openrouter"}
     assert {spec.semantic_similarity_threshold for spec in specs} == {0.7, 0.85}
     assert {spec.semantic_min_sentences_per_chunk for spec in specs} == {1, 2}
     assert all(spec.chunk_size == 1024 for spec in specs)
@@ -133,9 +136,12 @@ def test_embedding_experiment_uses_coupled_cases() -> None:
         for spec in specs
     }
     assert pairs == {
-        ("emb-bge-small-en-v1.5", "emb-bge-small-en-v1.5"),
         ("emb-text-embedding-3-small", "emb-text-embedding-3-small"),
         ("emb-text-embedding-3-large", "emb-text-embedding-3-large"),
+        ("emb-text-embedding-ada-002", "emb-text-embedding-ada-002"),
+        ("emb-qwen3-embedding-4b", "emb-qwen3-embedding-4b"),
+        ("emb-qwen3-embedding-8b", "emb-qwen3-embedding-8b"),
+        ("emb-mistral-embed-2312", "emb-mistral-embed-2312"),
     }
 
 
@@ -263,11 +269,11 @@ def test_artifact_layout_uses_layered_paths() -> None:
     spec = load_experiment_specs("studies/rag-foundation")[0]
     layout = ArtifactLayout(spec)
 
-    assert str(layout.prepared_dir()).endswith("artifacts/prepared/ds-docs-v1/prep-basic-clean-v1")
+    assert str(layout.prepared_dir()).endswith("artifacts/prepared/ds-beir-scifact-v1/prep-basic-clean-v1")
     assert str(layout.chunks_dir()).endswith(
-        "artifacts/chunks/ds-docs-v1/prep-basic-clean-v1/chunk-token-1024-128-v1/none"
+        "artifacts/chunks/ds-beir-scifact-v1/prep-basic-clean-v1/chunk-token-1024-128-v1/none"
     )
     assert str(layout.store_dir()).endswith(
-        "artifacts/store/ds-docs-v1/load-prep-basic-clean-v1__chunk-token-1024-128-v1__none/"
+        "artifacts/store/ds-beir-scifact-v1/load-prep-basic-clean-v1__chunk-token-1024-128-v1__none/"
         "store-qdrant__idx-qdrant-hnsw-cosine-default-v1__emb-text-embedding-3-small"
     )
