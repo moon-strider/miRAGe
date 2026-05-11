@@ -110,6 +110,21 @@ kind = "cross-encoder"
 model = "Xenova/ms-marco-MiniLM-L-6-v2"
 batch_size = 32
 
+[rerankers.rerank-minilm-l12-v1]
+kind = "cross-encoder"
+model = "Xenova/ms-marco-MiniLM-L-12-v2"
+batch_size = 32
+
+[rerankers.rerank-jina-tiny-v1]
+kind = "cross-encoder"
+model = "jinaai/jina-reranker-v1-tiny-en"
+batch_size = 16
+
+[rerankers.rerank-jina-turbo-v1]
+kind = "cross-encoder"
+model = "jinaai/jina-reranker-v1-turbo-en"
+batch_size = 16
+
 [tool_policies.none]
 kind = "none"
 

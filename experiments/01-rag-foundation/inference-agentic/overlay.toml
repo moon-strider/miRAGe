@@ -24,4 +24,7 @@ tool_policy_id = [
 reranker_id = [
   "none",
   "rerank-minilm-l6-v1",
+  "rerank-minilm-l12-v1",
+  "rerank-jina-tiny-v1",
+  "rerank-jina-turbo-v1",
 ]

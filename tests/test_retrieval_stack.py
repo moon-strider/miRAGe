@@ -88,3 +88,38 @@ def test_rerank_items_reorders_results(monkeypatch) -> None:
     )
 
     assert reranked[0].chunk_id == "doc-002::chunk-0000"
+
+
+def test_rerank_items_supports_multiple_registered_models(monkeypatch) -> None:
+    seen_models: list[str] = []
+
+    class FakeEncoder:
+        def __init__(self, model_name: str) -> None:
+            seen_models.append(model_name)
+            self.model_name = model_name
+
+        def rerank(self, query: str, documents: list[str], batch_size: int = 64):
+            del query, documents, batch_size
+            return [1.0]
+
+    monkeypatch.setattr("mirage.reranking.TextCrossEncoder", FakeEncoder)
+
+    for reranker_id, model_name in [
+        ("rerank-minilm-l12-v1", "Xenova/ms-marco-MiniLM-L-12-v2"),
+        ("rerank-jina-tiny-v1", "jinaai/jina-reranker-v1-tiny-en"),
+        ("rerank-jina-turbo-v1", "jinaai/jina-reranker-v1-turbo-en"),
+    ]:
+        rerank_items(
+            reranker_id=reranker_id,
+            reranker_kind="cross-encoder",
+            reranker_model=model_name,
+            reranker_batch_size=16,
+            question="finance",
+            items=[_item("doc-001::chunk-0000", "alpha")],
+        )
+
+    assert seen_models == [
+        "Xenova/ms-marco-MiniLM-L-12-v2",
+        "jinaai/jina-reranker-v1-tiny-en",
+        "jinaai/jina-reranker-v1-turbo-en",
+    ]

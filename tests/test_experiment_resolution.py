@@ -108,7 +108,13 @@ def test_agentic_experiment_includes_reranker_axis() -> None:
         overrides={"generation_model_id": "gen-llama-3.1-8b"},
     )
 
-    assert {spec.reranker_id for spec in specs} == {"none", "rerank-minilm-l6-v1"}
+    assert {spec.reranker_id for spec in specs} == {
+        "none",
+        "rerank-minilm-l6-v1",
+        "rerank-minilm-l12-v1",
+        "rerank-jina-tiny-v1",
+        "rerank-jina-turbo-v1",
+    }
     assert {spec.reranker_kind for spec in specs} == {"none", "cross-encoder"}
 
 

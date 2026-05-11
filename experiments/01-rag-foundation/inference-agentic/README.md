@@ -22,3 +22,8 @@ rest of the retrieval stack fixed.
 - `none` remains the baseline single-pass path
 - `tool-context-expansion-v1` runs one bounded follow-up retrieval with larger `top_k`
 - `tool-react-v1` runs one bounded follow-up retrieval with a rewritten evidence-seeking query
+- rerankers are all ONNX-backed fastembed cross-encoders
+- `rerank-minilm-l6-v1`: smallest MiniLM baseline
+- `rerank-minilm-l12-v1`: slightly larger MiniLM candidate for higher ranking quality
+- `rerank-jina-tiny-v1`: fast long-context English reranker
+- `rerank-jina-turbo-v1`: stronger long-context English reranker with slightly higher runtime cost
