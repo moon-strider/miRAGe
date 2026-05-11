@@ -39,3 +39,25 @@ Add after execution:
 - measured generation deltas
 - measured latency/cost deltas
 - whether the extra five chunks were useful evidence or mostly noise
+
+
+## Retrieval-only full-dataset results: SciFact, 2026-05-11
+
+Report:
+- `reports/01-rag-foundation/wave1-dense-topk10/2026-05-11__retrieval-only-scifact__wave1-dense-topk10__vs-baseline-freeze.md`
+
+| metric | baseline | candidate | delta |
+| --- | ---: | ---: | ---: |
+| hit_at_k | 0.8000 | 0.8667 | +0.0667 |
+| precision_at_k | 0.1727 | 0.0976 | -0.0751 |
+| recall_at_k | 0.7771 | 0.8570 | +0.0799 |
+| mrr_at_k | 0.6736 | 0.6826 | +0.0090 |
+| ndcg_at_k | 0.6912 | 0.7193 | +0.0281 |
+| p50 latency ms | 917.85 | 833.84 | -84.01 |
+| p95 latency ms | 2067.89 | 1620.83 | -447.06 |
+
+Interpretation:
+- No LLM calls were made; this is retrieval-only evaluation.
+- The recall hypothesis held on full SciFact: Recall@k improved from 0.7771 to 0.8570.
+- Precision@k decreased because the candidate retrieves a wider set.
+- This is a meaningful retrieval-side gain and should stay in the candidate set for later LLM-stage evaluation.
