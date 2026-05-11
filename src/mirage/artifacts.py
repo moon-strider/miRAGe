@@ -47,6 +47,7 @@ class ArtifactLayout:
             / self.spec.query_embedding_model_id
             / self.spec.search_algorithm_id
             / self.spec.reranker_id
+            / self.spec.tool_policy_id
         )
 
     def answers_dir(self) -> Path:
