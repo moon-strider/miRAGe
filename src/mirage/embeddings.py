@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from time import sleep
 
 import httpx
 import tiktoken
@@ -10,6 +11,7 @@ from openai import OpenAI
 from mirage.config import EnvironmentSettings
 
 _ENCODING = tiktoken.get_encoding("cl100k_base")
+_RETRYABLE_ERROR_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
 
 
 def estimate_token_count(texts: Iterable[str]) -> int:
@@ -24,6 +26,33 @@ def _make_openrouter_client(env: EnvironmentSettings) -> OpenAI:
         raise RuntimeError("OPENROUTER_API_KEY is required for remote embedding or generation")
     http_client = httpx.Client(follow_redirects=True)
     return OpenAI(api_key=env.openrouter_api_key, base_url=env.openrouter_base_url, http_client=http_client)
+
+
+def _extract_error_code(response: object) -> int | None:
+    error = getattr(response, "error", None)
+    if not isinstance(error, dict):
+        return None
+    code = error.get("code")
+    if isinstance(code, int):
+        return code
+    if isinstance(code, str) and code.isdigit():
+        return int(code)
+    return None
+
+
+def _create_embeddings_with_retries(client: OpenAI, *, model: str, batch: list[str], max_attempts: int = 6) -> object:
+    last_error: object = None
+    for attempt in range(max_attempts):
+        response = client.embeddings.create(model=model, input=batch)
+        data = getattr(response, "data", None)
+        if data is not None:
+            return response
+        error_code = _extract_error_code(response)
+        last_error = getattr(response, "error", None)
+        if error_code not in _RETRYABLE_ERROR_CODES or attempt == max_attempts - 1:
+            raise RuntimeError(f"Embedding request failed for {model}: {last_error}")
+        sleep(min(2**attempt, 30))
+    raise RuntimeError(f"Embedding request failed for {model}: {last_error}")
 
 
 def embed_texts(
@@ -49,7 +78,7 @@ def embed_texts(
         token_count = 0
         for start in range(0, len(texts), batch_size):
             batch = texts[start : start + batch_size]
-            response = client.embeddings.create(model=model, input=batch)
+            response = _create_embeddings_with_retries(client, model=model, batch=batch)
             vectors.extend(item.embedding for item in response.data)
             usage = getattr(response, "usage", None)
             if usage and getattr(usage, "prompt_tokens", None) is not None:
