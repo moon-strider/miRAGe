@@ -6,6 +6,7 @@ from typing import List, Optional
 
 import typer
 
+from mirage.datasets import fetch_all_datasets, fetch_dataset
 from mirage.pipeline import answer_question
 from mirage.runner import describe_spec, persist_resolved_specs, run_eval, run_ingest, select_single_spec
 
@@ -51,6 +52,18 @@ def ask(
     typer.echo("Retrieved context:")
     for item in retrieved_items:
         typer.echo(f"- {item.doc_id} :: {item.chunk_id} :: {item.score:.4f}")
+
+
+@app.command()
+def datasets(
+    dataset_id: Optional[str] = typer.Option(None, "--dataset-id"),
+    force: bool = typer.Option(False, "--force"),
+) -> None:
+    if dataset_id:
+        result = fetch_dataset(dataset_id, force=force)
+    else:
+        result = fetch_all_datasets(force=force)
+    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 @app.command()

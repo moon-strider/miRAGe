@@ -7,5 +7,6 @@ __pycache__/
 *.pyc
 .DS_Store
 runs/
+.hermes/
 data/datasets/*/raw/
 data/datasets/*/downloads/

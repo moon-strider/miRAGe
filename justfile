@@ -7,6 +7,9 @@ chunking_experiment := "experiments/01-rag-foundation/load-deterministic-chunkin
 setup:
     uv sync --dev
 
+datasets:
+    uv run mirage datasets
+
 up:
     docker compose up -d
 
