@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from mirage.artifacts import ArtifactLayout
-from mirage.config import ResolvedSpec
+from mirage.config import ResolvedSpec, load_experiment_specs
 from mirage.io_utils import read_json, read_jsonl
 from mirage.registry import PROJECT_ROOT
 
@@ -348,6 +348,13 @@ def synthesize_reports(
     experiment_id = specs[0].experiment_id
     if experiment_id == "baseline-freeze":
         return [_write_report(root, sorted(specs, key=lambda item: item.generation_model_id), None, "baseline-freeze", "baseline-freeze")]
+    if experiment_id.startswith("wave1-"):
+        baseline_specs = sorted(
+            load_experiment_specs(Path("experiments") / "01-rag-foundation" / "baseline-freeze"),
+            key=lambda item: item.generation_model_id,
+        )
+        candidate_specs = sorted(specs, key=lambda item: item.generation_model_id)
+        return [_write_report(root, baseline_specs, candidate_specs, baseline_id or "baseline-freeze", experiment_id)]
     axis_field = _PRIMARY_AXIS_BY_EXPERIMENT.get(experiment_id)
     if axis_field is None:
         return []
