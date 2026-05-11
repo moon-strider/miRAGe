@@ -25,10 +25,10 @@ Compare hybrid BM25+dense RRF retrieval against the dense top-k 5 frozen baselin
 | hit_at_k | 0.8000 | 0.8467 | +0.0467 |
 | precision_at_k | 0.1727 | 0.0935 | -0.0792 |
 | recall_at_k | 0.7771 | 0.8321 | +0.0550 |
-| mrr_at_k | 0.6736 | 0.6530 | -0.0206 |
-| ndcg_at_k | 0.6912 | 0.6899 | -0.0013 |
-| p50 latency ms | 917.85 | 1788.07 | +870.22 |
-| p95 latency ms | 2067.89 | 2608.10 | +540.21 |
+| mrr_at_k | 0.6742 | 0.6530 | -0.0206 |
+| ndcg_at_k | 0.6917 | 0.6899 | -0.0013 |
+| p50 latency ms | 922.37 | 1788.07 | +870.22 |
+| p95 latency ms | 1128.58 | 2608.10 | +540.21 |
 
 ## Interpretation
 

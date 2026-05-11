@@ -27,7 +27,7 @@ Record full SciFact retrieval-only baseline metrics without any LLM generation c
 
 | examples | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | p50 ms | p95 ms | mean query embedding cost |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 300 | 0.8000 | 0.1727 | 0.7771 | 0.6736 | 0.6912 | 917.85 | 2067.89 | $0.000000 |
+| 300 | 0.8000 | 0.1727 | 0.7771 | 0.6742 | 0.6917 | 922.37 | 1128.58 | $0.000000 |
 
 ## Interpretation
 

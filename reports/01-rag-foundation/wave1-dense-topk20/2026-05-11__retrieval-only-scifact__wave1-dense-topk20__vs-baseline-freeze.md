@@ -21,10 +21,10 @@ Compare dense top-k 20 against the dense top-k 5 frozen baseline on full SciFact
 | hit_at_k | 0.8000 | 0.9000 | +0.1000 |
 | precision_at_k | 0.1727 | 0.0513 | -0.1214 |
 | recall_at_k | 0.7771 | 0.8977 | +0.1206 |
-| mrr_at_k | 0.6736 | 0.6849 | +0.0113 |
-| ndcg_at_k | 0.6912 | 0.7301 | +0.0389 |
-| p50 latency ms | 917.85 | 919.28 | +1.43 |
-| p95 latency ms | 2067.89 | 1105.39 | -962.50 |
+| mrr_at_k | 0.6742 | 0.6849 | +0.0113 |
+| ndcg_at_k | 0.6917 | 0.7301 | +0.0389 |
+| p50 latency ms | 922.37 | 919.28 | +1.43 |
+| p95 latency ms | 1128.58 | 1105.39 | -962.50 |
 
 ## Interpretation
 

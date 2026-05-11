@@ -132,9 +132,9 @@ Report:
 
 | dataset | examples | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | p50 ms | p95 ms |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `ds-beir-scifact-v1` | 300 | 0.8000 | 0.1727 | 0.7771 | 0.6736 | 0.6912 | 917.85 | 2067.89 |
+| `ds-beir-scifact-v1` | 300 | 0.8000 | 0.1727 | 0.7771 | 0.6742 | 0.6917 | 922.37 | 1128.58 |
 
 Interpretation:
 - This result is retrieval-only: no LLM generation calls were made.
 - The baseline retrieves at least one gold document for 80.00% of SciFact test examples.
-- Recall@k is 0.7771 and NDCG@k is 0.6912, so there is enough headroom for retrieval-side experiments to be meaningful.
+- Recall@k is 0.7771 and NDCG@k is 0.6917, so there is enough headroom for retrieval-side experiments to be meaningful.

@@ -21,10 +21,10 @@ Compare sparse BM25 retrieval against the dense top-k 5 frozen baseline on full 
 | hit_at_k | 0.8000 | 0.6867 | -0.1133 |
 | precision_at_k | 0.1727 | 0.0742 | -0.0985 |
 | recall_at_k | 0.7771 | 0.6688 | -0.1083 |
-| mrr_at_k | 0.6736 | 0.5095 | -0.1641 |
-| ndcg_at_k | 0.6912 | 0.5438 | -0.1474 |
-| p50 latency ms | 917.85 | 1722.37 | +804.52 |
-| p95 latency ms | 2067.89 | 2005.89 | -62.00 |
+| mrr_at_k | 0.6742 | 0.5095 | -0.1641 |
+| ndcg_at_k | 0.6917 | 0.5438 | -0.1474 |
+| p50 latency ms | 922.37 | 1722.37 | +804.52 |
+| p95 latency ms | 1128.58 | 2005.89 | -62.00 |
 
 ## Interpretation
 
