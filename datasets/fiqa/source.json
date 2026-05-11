@@ -1,0 +1,33 @@
+{
+  "dataset_id": "fiqa",
+  "source_family": "beir",
+  "upstream_dataset_id": "BeIR/fiqa",
+  "source_urls": {
+    "huggingface": "https://huggingface.co/datasets/BeIR/fiqa",
+    "archive": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/fiqa.zip"
+  },
+  "pinned": {
+    "huggingface_sha": "979c07a7cb5ccc6ca009792241fa1250b98055dd",
+    "archive_md5": "17918ed23cd04fb15047f73e6c3bd9d9"
+  },
+  "stats": {
+    "corpus_documents": 57638,
+    "queries": 6648,
+    "huggingface_corpus_bytes": 27700817,
+    "huggingface_query_bytes": 321680,
+    "archive_size_bytes": 17948027
+  },
+  "task": {
+    "domain": "financial question answering retrieval",
+    "language": "en",
+    "primary_focus": "mixed semantic and factual retrieval",
+    "secondary_focus": "finance jargon and paraphrase robustness"
+  },
+  "adapter": {
+    "dataset_adapter_id": "fiqa",
+    "eval_adapter_id": "fiqa",
+    "dataset_root": "datasets/fiqa",
+    "eval_root": "datasets/fiqa",
+    "default_eval_split": "test"
+  }
+}

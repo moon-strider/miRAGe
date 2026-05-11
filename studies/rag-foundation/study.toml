@@ -1,0 +1,150 @@
+[study]
+id = "rag-foundation"
+mode = "retrieval-only"
+
+[baseline]
+id = "baseline"
+dataset_id = "ds-docs-v1"
+evalset_id = "ev-dev-v1"
+preprocessing_variant_id = "prep-basic-clean-v1"
+chunking_variant_id = "chunk-token-1024-128-v1"
+chunking_model_id = "none"
+store_backend_id = "qdrant"
+store_index_variant_id = "idx-qdrant-hnsw-cosine-default-v1"
+store_embedding_model_id = "emb-text-embedding-3-small"
+query_embedding_model_id = "emb-text-embedding-3-small"
+search_algorithm_id = "search-dense-topk5-v1"
+reranker_id = "none"
+prompt_variant_id = "prompt-grounded-citations-v1"
+tool_policy_id = "none"
+generation_temperature = 0.0
+generation_max_tokens = 350
+
+[baseline.matrix]
+generation_model_id = ["gen-llama-3.1-8b", "gen-grok-4-fast", "gen-minimax-2.7"]
+
+[[experiments]]
+id = "dense-topk3"
+search_algorithm_id = "search-dense-topk3-v1"
+
+[[experiments]]
+id = "dense-topk10"
+search_algorithm_id = "search-dense-topk10-v1"
+
+[[experiments]]
+id = "dense-topk20"
+search_algorithm_id = "search-dense-topk20-v1"
+
+[[experiments]]
+id = "sparse-bm25"
+search_algorithm_id = "search-sparse-bm25-topk10-v1"
+
+[[experiments]]
+id = "hybrid-rrf"
+search_algorithm_id = "search-hybrid-rrf-topk10-v1"
+
+[[experiments]]
+id = "faiss-flat"
+store_backend_id = "faiss-local"
+store_index_variant_id = "idx-faiss-flat-ip-v1"
+
+[[experiments]]
+id = "dense-mmr"
+search_algorithm_id = "search-dense-mmr-topk10-v1"
+
+[[experiments]]
+id = "rerank-jina-tiny"
+search_algorithm_id = "search-dense-topk10-v1"
+reranker_id = "rerank-jina-tiny-v1"
+
+[[experiments]]
+id = "semantic-chunking"
+chunking_variant_id = "chunk-semantic-v1"
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+
+[experiments.matrix]
+chunking_model_id = ["emb-bge-small-en-v1.5", "emb-text-embedding-3-small", "emb-text-embedding-3-large"]
+semantic_similarity_threshold = [0.7, 0.85]
+semantic_min_sentences_per_chunk = [1, 2]
+
+[[experiments]]
+id = "tool-context-expansion"
+tool_policy_id = "tool-context-expansion-v1"
+
+[[experiments]]
+id = "load-preprocessing"
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+
+[experiments.matrix]
+preprocessing_variant_id = ["prep-basic-clean-v1", "prep-basic-clean-dedupe-v1", "prep-basic-clean-metadata-v1"]
+
+[[experiments]]
+id = "load-deterministic-chunking"
+query_embedding_model_id = "emb-text-embedding-3-small"
+
+[experiments.matrix]
+chunking_variant_id = ["chunk-token-1024-128-v1", "chunk-token-768-128-v1", "chunk-sentence-1024-128-v1"]
+
+[[experiments]]
+id = "store-embedding-models"
+
+[[experiments.cases]]
+store_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+
+[[experiments.cases]]
+store_embedding_model_id = "emb-text-embedding-3-small"
+query_embedding_model_id = "emb-text-embedding-3-small"
+
+[[experiments.cases]]
+store_embedding_model_id = "emb-text-embedding-3-large"
+query_embedding_model_id = "emb-text-embedding-3-large"
+
+[[experiments]]
+id = "store-index-variants"
+store_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+
+[experiments.matrix]
+store_index_variant_id = ["idx-qdrant-hnsw-cosine-default-v1", "idx-qdrant-hnsw-cosine-hi-ef-v1"]
+
+[[experiments]]
+id = "store-backends"
+store_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+
+[[experiments.cases]]
+store_backend_id = "qdrant"
+store_index_variant_id = "idx-qdrant-hnsw-cosine-default-v1"
+
+[[experiments.cases]]
+store_backend_id = "faiss-local"
+store_index_variant_id = "idx-faiss-flat-ip-v1"
+
+[[experiments]]
+id = "inference-search"
+store_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+
+[experiments.matrix]
+search_algorithm_id = ["search-dense-topk5-v1", "search-dense-topk10-v1", "search-dense-topk20-v1", "search-sparse-bm25-topk10-v1", "search-hybrid-rrf-topk10-v1", "search-dense-mmr-topk10-v1"]
+
+[[experiments]]
+id = "inference-prompting"
+store_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+search_algorithm_id = "search-dense-topk5-v1"
+
+[experiments.matrix]
+prompt_variant_id = ["prompt-grounded-citations-v1", "prompt-brief-grounded-v1", "prompt-evidence-first-v1", "prompt-strict-abstain-v1"]
+
+[[experiments]]
+id = "inference-agentic"
+store_embedding_model_id = "emb-bge-small-en-v1.5"
+query_embedding_model_id = "emb-bge-small-en-v1.5"
+search_algorithm_id = "search-dense-topk5-v1"
+prompt_variant_id = "prompt-grounded-citations-v1"
+
+[experiments.matrix]
+tool_policy_id = ["none", "tool-react-v1", "tool-context-expansion-v1"]
+reranker_id = ["none", "rerank-minilm-l6-v1", "rerank-minilm-l12-v1", "rerank-jina-tiny-v1", "rerank-jina-turbo-v1"]

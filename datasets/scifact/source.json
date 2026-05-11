@@ -1,0 +1,33 @@
+{
+  "dataset_id": "scifact",
+  "source_family": "beir",
+  "upstream_dataset_id": "BeIR/scifact",
+  "source_urls": {
+    "huggingface": "https://huggingface.co/datasets/BeIR/scifact",
+    "archive": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip"
+  },
+  "pinned": {
+    "huggingface_sha": "b3b5335604bf5ee3c4447671af975ea25143d4f5",
+    "archive_md5": "5f7d1de60b170fc8027bb7898e2efca1"
+  },
+  "stats": {
+    "corpus_documents": 5183,
+    "queries": 1109,
+    "total_rows_hf": 6292,
+    "huggingface_total_file_size_mb": 4.55,
+    "archive_size_bytes": 2816079
+  },
+  "task": {
+    "domain": "scientific fact checking",
+    "language": "en",
+    "primary_focus": "semantic evidence retrieval",
+    "secondary_focus": "grounded claim support lookup"
+  },
+  "adapter": {
+    "dataset_adapter_id": "scifact",
+    "eval_adapter_id": "scifact",
+    "dataset_root": "datasets/scifact",
+    "eval_root": "datasets/scifact",
+    "default_eval_split": "test"
+  }
+}

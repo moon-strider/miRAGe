@@ -1,0 +1,219 @@
+[preprocessing_variants.prep-basic-clean-v1]
+kind = "basic-clean"
+
+[preprocessing_variants.prep-basic-clean-dedupe-v1]
+kind = "basic-clean-dedupe"
+
+[preprocessing_variants.prep-basic-clean-metadata-v1]
+kind = "basic-clean-metadata"
+
+[chunking_variants.chunk-token-1024-128-v1]
+kind = "token"
+tokenizer = "cl100k_base"
+chunk_size = 1024
+chunk_overlap = 128
+
+[chunking_variants.chunk-token-768-128-v1]
+kind = "token"
+tokenizer = "cl100k_base"
+chunk_size = 768
+chunk_overlap = 128
+
+[chunking_variants.chunk-sentence-1024-128-v1]
+kind = "sentence"
+tokenizer = "cl100k_base"
+chunk_size = 1024
+chunk_overlap = 128
+
+[chunking_variants.chunk-semantic-v1]
+kind = "semantic"
+tokenizer = "cl100k_base"
+chunk_size = 1024
+chunk_overlap = 0
+
+[search_algorithms.search-dense-topk3-v1]
+kind = "dense"
+top_k = 3
+mrr_depth = 10
+distance = "cosine"
+
+[search_algorithms.search-dense-topk5-v1]
+kind = "dense"
+top_k = 5
+mrr_depth = 10
+distance = "cosine"
+
+[search_algorithms.search-dense-topk10-v1]
+kind = "dense"
+top_k = 10
+mrr_depth = 10
+distance = "cosine"
+
+[search_algorithms.search-dense-topk20-v1]
+kind = "dense"
+top_k = 20
+mrr_depth = 20
+distance = "cosine"
+
+[search_algorithms.search-sparse-bm25-topk10-v1]
+kind = "sparse"
+top_k = 10
+mrr_depth = 10
+distance = "cosine"
+
+[search_algorithms.search-hybrid-rrf-topk10-v1]
+kind = "hybrid"
+top_k = 10
+mrr_depth = 10
+distance = "cosine"
+dense_top_k = 10
+sparse_top_k = 10
+rrf_k = 60
+
+[search_algorithms.search-dense-mmr-topk10-v1]
+kind = "dense-mmr"
+top_k = 10
+mrr_depth = 10
+distance = "cosine"
+dense_top_k = 20
+mmr_lambda = 0.5
+
+[prompt_variants.prompt-grounded-citations-v1]
+system_prompt = """
+You answer only from the provided context.
+If the context is insufficient, reply exactly with {insufficient_context_response}.
+When you answer from the context, cite the supporting document ids in square brackets, for example [doc-001].
+Do not invent citations.
+"""
+user_template = """
+Answer the question using only the context below.
+
+Question: {question}
+
+Context:
+{context}
+"""
+
+[prompt_variants.prompt-brief-grounded-v1]
+system_prompt = """
+You answer only from the provided context.
+Keep the answer brief.
+If the context is insufficient, reply exactly with {insufficient_context_response}.
+Cite supporting document ids in square brackets.
+"""
+user_template = """
+Question: {question}
+
+Context:
+{context}
+"""
+
+[prompt_variants.prompt-evidence-first-v1]
+system_prompt = """
+You answer only from the provided context.
+First extract the key evidence from the context, then answer.
+If the context is insufficient, reply exactly with {insufficient_context_response}.
+Every non-empty answer must cite supporting document ids in square brackets.
+"""
+user_template = """
+Question: {question}
+
+Context:
+{context}
+
+Return two short sections:
+Evidence:
+Answer:
+"""
+
+[prompt_variants.prompt-strict-abstain-v1]
+system_prompt = """
+You answer only from the provided context.
+If the answer is not directly supported, reply exactly with {insufficient_context_response}.
+Do not guess, hedge, or use outside knowledge.
+When supported, answer conservatively and cite the supporting document ids in square brackets.
+"""
+user_template = """
+Question: {question}
+
+Context:
+{context}
+"""
+
+[rerankers.none]
+kind = "none"
+
+[rerankers.rerank-minilm-l6-v1]
+kind = "cross-encoder"
+model = "Xenova/ms-marco-MiniLM-L-6-v2"
+batch_size = 32
+
+[rerankers.rerank-minilm-l12-v1]
+kind = "cross-encoder"
+model = "Xenova/ms-marco-MiniLM-L-12-v2"
+batch_size = 32
+
+[rerankers.rerank-jina-tiny-v1]
+kind = "cross-encoder"
+model = "jinaai/jina-reranker-v1-tiny-en"
+batch_size = 16
+
+[rerankers.rerank-jina-turbo-v1]
+kind = "cross-encoder"
+model = "jinaai/jina-reranker-v1-turbo-en"
+batch_size = 16
+
+[tool_policies.none]
+kind = "none"
+
+[tool_policies.tool-react-v1]
+kind = "react"
+
+[tool_policies.tool-context-expansion-v1]
+kind = "context-expansion"
+
+[store_backends.qdrant]
+kind = "qdrant"
+collection_prefix = "mirage"
+runtime_status = "active"
+
+[store_backends.faiss-local]
+kind = "faiss"
+collection_prefix = "mirage"
+runtime_status = "active"
+
+[store_index_variants.idx-qdrant-hnsw-cosine-default-v1]
+backend_id = "qdrant"
+kind = "hnsw"
+distance = "cosine"
+runtime_status = "active"
+
+[store_index_variants.idx-qdrant-hnsw-cosine-hi-ef-v1]
+backend_id = "qdrant"
+kind = "hnsw"
+distance = "cosine"
+runtime_status = "active"
+hnsw_ef_construct = 256
+
+[store_index_variants.idx-faiss-flat-ip-v1]
+backend_id = "faiss-local"
+kind = "flat"
+distance = "dot"
+runtime_status = "active"
+
+[store_index_variants.idx-faiss-ivfflat-v1]
+backend_id = "faiss-local"
+kind = "ivfflat"
+distance = "dot"
+runtime_status = "active"
+nlist = 256
+
+[store_index_variants.idx-faiss-ivfpq-v1]
+backend_id = "faiss-local"
+kind = "ivfpq"
+distance = "dot"
+runtime_status = "active"
+nlist = 256
+m = 16
+bits = 8
+

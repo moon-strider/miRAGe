@@ -1,0 +1,35 @@
+[datasets.ds-docs-v1]
+adapter_id = "jsonl"
+corpus_path = "datasets/smoke/documents.jsonl"
+
+[datasets.ds-beir-scifact-v1]
+adapter_id = "scifact"
+dataset_root = "datasets/scifact"
+
+[datasets.ds-beir-fiqa-v1]
+adapter_id = "fiqa"
+dataset_root = "datasets/fiqa"
+
+[datasets.ds-qasper-v1]
+adapter_id = "qasper"
+dataset_root = "datasets/qasper"
+
+[evalsets.ev-dev-v1]
+adapter_id = "jsonl"
+eval_path = "datasets/smoke/eval.jsonl"
+split = "dev"
+
+[evalsets.ev-beir-scifact-v1]
+adapter_id = "scifact"
+eval_root = "datasets/scifact"
+split = "test"
+
+[evalsets.ev-beir-fiqa-v1]
+adapter_id = "fiqa"
+eval_root = "datasets/fiqa"
+split = "test"
+
+[evalsets.ev-qasper-v1]
+adapter_id = "qasper"
+eval_root = "datasets/qasper"
+split = "dev"
