@@ -32,7 +32,6 @@ Keep the current Gemini baseline frozen and compare only chunking strategy/scale
 4. sentence-aware chunks: sentence chunks `1024/128`.
 5. one semantic-chunking preset, without threshold grid search.
 
-Do not run prompting, generation, or agentic/tool-policy experiments in this block. Use `uv run mirage eval-retrieval ...` only; do not use `uv run mirage eval` or pass `generation_model_id` for retrieval-only runs.
 
 ## Quickstart
 
