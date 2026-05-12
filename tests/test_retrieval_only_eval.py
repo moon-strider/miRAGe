@@ -55,17 +55,21 @@ def test_evaluate_retrieval_spec_writes_metrics_without_generation(tmp_path: Pat
     assert not (Path(result["retrieval_dir"]) / "answers.jsonl").exists()
 
 
-def test_run_retrieval_eval_deduplicates_generation_variants(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_retrieval_eval_uses_generation_free_specs(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = []
+
+    def fake_ingest(spec, reset: bool = False):
+        return {"store": spec.store_variant_id}
 
     def fake_evaluate(spec, reset: bool = False):
         calls.append(spec.generation_model_id)
         return {"generation_model_id": spec.generation_model_id}
 
+    monkeypatch.setattr("mirage.runner.ingest_spec", fake_ingest)
     monkeypatch.setattr("mirage.runner.evaluate_retrieval_spec", fake_evaluate)
 
     result = run_retrieval_eval(Path("studies/rag-foundation"))
 
-    assert result["resolved_specs"] == 3
+    assert result["resolved_specs"] == 1
     assert result["evaluated_retrieval_specs"] == 1
-    assert len(calls) == 1
+    assert calls == ["none"]

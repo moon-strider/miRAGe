@@ -45,7 +45,10 @@ def run_retrieval_eval(
     overrides: list[str] | None = None,
     reset: bool = False,
 ) -> dict[str, object]:
-    specs = resolve_specs(experiment_path, overrides)
+    retrieval_overrides = list(overrides or [])
+    if not any(item.split("=", 1)[0] == "generation_model_id" for item in retrieval_overrides):
+        retrieval_overrides.append("generation_model_id=none")
+    specs = resolve_specs(experiment_path, retrieval_overrides)
     results: list[dict[str, object]] = []
     seen_store_keys: set[tuple[str, str]] = set()
     seen_retrieval_keys: set[tuple[str, str, str, str, str]] = set()

@@ -1,3 +1,9 @@
+[generation_models.none]
+provider = "none"
+model = "none"
+pricing_input_per_1m_tokens_usd = 0.0
+pricing_output_per_1m_tokens_usd = 0.0
+
 [generation_models."gen-llama-3.1-8b"]
 provider = "openrouter"
 model = "meta-llama/llama-3.1-8b-instruct"
