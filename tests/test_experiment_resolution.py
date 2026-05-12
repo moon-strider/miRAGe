@@ -91,42 +91,42 @@ def test_external_dataset_registry_resolves_adapter_roots() -> None:
     assert spec.eval_path is None
 
 
-def test_deterministic_chunking_experiment_resolves_three_chunking_variants() -> None:
+def test_deterministic_chunking_experiment_resolves_llm_free_macro_variants() -> None:
     specs = load_experiment_specs(
         "studies/rag-foundation",
         overrides={"study_experiment_id": "load-deterministic-chunking", "generation_model_id": "gen-llama-3.1-8b"},
     )
 
-    assert len(specs) == 3
+    assert len(specs) == 4
     assert {spec.chunking_variant_id for spec in specs} == {
         "chunk-token-1024-128-v1",
-        "chunk-token-768-128-v1",
+        "chunk-token-512-64-v1",
+        "chunk-token-2048-256-v1",
         "chunk-sentence-1024-128-v1",
     }
     assert {spec.chunking_kind for spec in specs} == {"token", "sentence"}
+    assert {spec.store_embedding_model_id for spec in specs} == {"emb-gemini-embedding-001"}
+    assert {spec.query_embedding_model_id for spec in specs} == {"emb-gemini-embedding-001"}
+    assert {spec.tool_policy_id for spec in specs} == {"none"}
 
 
-def test_semantic_chunking_experiment_resolves_runtime_config() -> None:
+def test_semantic_chunking_experiment_resolves_single_llm_free_preset() -> None:
     specs = load_experiment_specs(
         "studies/rag-foundation",
         overrides={"study_experiment_id": "semantic-chunking", "generation_model_id": "gen-llama-3.1-8b"},
     )
 
-    assert len(specs) == 28
-    assert {spec.chunking_kind for spec in specs} == {"semantic"}
-    assert {spec.chunking_model_id for spec in specs} == {
-        "emb-text-embedding-3-small",
-        "emb-text-embedding-3-large",
-        "emb-text-embedding-ada-002",
-        "emb-pplx-embed-v1-0.6b",
-        "emb-pplx-embed-v1-4b",
-        "emb-gemini-embedding-001",
-        "emb-mistral-embed-2312",
-    }
-    assert {spec.semantic_embedding_provider for spec in specs} == {"openrouter"}
-    assert {spec.semantic_similarity_threshold for spec in specs} == {0.7, 0.85}
-    assert {spec.semantic_min_sentences_per_chunk for spec in specs} == {1, 2}
-    assert all(spec.chunk_size == 1024 for spec in specs)
+    assert len(specs) == 1
+    spec = specs[0]
+    assert spec.chunking_kind == "semantic"
+    assert spec.chunking_model_id == "emb-gemini-embedding-001"
+    assert spec.store_embedding_model_id == "emb-gemini-embedding-001"
+    assert spec.query_embedding_model_id == "emb-gemini-embedding-001"
+    assert spec.semantic_embedding_provider == "openrouter"
+    assert spec.semantic_similarity_threshold == 0.85
+    assert spec.semantic_min_sentences_per_chunk == 2
+    assert spec.chunk_size == 1024
+    assert spec.tool_policy_id == "none"
 
 
 def test_embedding_experiment_uses_coupled_cases() -> None:

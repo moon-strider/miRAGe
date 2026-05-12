@@ -60,12 +60,11 @@ reranker_id = "rerank-jina-tiny-v1"
 [[experiments]]
 id = "semantic-chunking"
 chunking_variant_id = "chunk-semantic-v1"
-query_embedding_model_id = "emb-text-embedding-3-small"
-
-[experiments.matrix]
-chunking_model_id = ["emb-text-embedding-3-small", "emb-text-embedding-3-large", "emb-text-embedding-ada-002", "emb-pplx-embed-v1-0.6b", "emb-pplx-embed-v1-4b", "emb-gemini-embedding-001", "emb-mistral-embed-2312"]
-semantic_similarity_threshold = [0.7, 0.85]
-semantic_min_sentences_per_chunk = [1, 2]
+chunking_model_id = "emb-gemini-embedding-001"
+store_embedding_model_id = "emb-gemini-embedding-001"
+query_embedding_model_id = "emb-gemini-embedding-001"
+semantic_similarity_threshold = 0.85
+semantic_min_sentences_per_chunk = 2
 
 [[experiments]]
 id = "tool-context-expansion"
@@ -80,10 +79,11 @@ preprocessing_variant_id = ["prep-basic-clean-v1", "prep-basic-clean-dedupe-v1",
 
 [[experiments]]
 id = "load-deterministic-chunking"
-query_embedding_model_id = "emb-text-embedding-3-small"
+store_embedding_model_id = "emb-gemini-embedding-001"
+query_embedding_model_id = "emb-gemini-embedding-001"
 
 [experiments.matrix]
-chunking_variant_id = ["chunk-token-1024-128-v1", "chunk-token-768-128-v1", "chunk-sentence-1024-128-v1"]
+chunking_variant_id = ["chunk-token-1024-128-v1", "chunk-token-512-64-v1", "chunk-token-2048-256-v1", "chunk-sentence-1024-128-v1"]
 
 [[experiments]]
 id = "store-embedding-models"

@@ -13,6 +13,18 @@ tokenizer = "cl100k_base"
 chunk_size = 1024
 chunk_overlap = 128
 
+[chunking_variants.chunk-token-512-64-v1]
+kind = "token"
+tokenizer = "cl100k_base"
+chunk_size = 512
+chunk_overlap = 64
+
+[chunking_variants.chunk-token-2048-256-v1]
+kind = "token"
+tokenizer = "cl100k_base"
+chunk_size = 2048
+chunk_overlap = 256
+
 [chunking_variants.chunk-token-768-128-v1]
 kind = "token"
 tokenizer = "cl100k_base"
