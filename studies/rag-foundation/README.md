@@ -49,3 +49,21 @@ All rows use the same full SciFact split, Qdrant HNSW cosine store, token 1024/1
 - `text-embedding-ada-002` is worse than the current baseline and should not be used for the next retrieval sweeps.
 - `mistral-embed-2312` was attempted after Gemini but produced no artifact after a long OpenRouter run; keep it out of the decision path unless its provider stability improves.
 - Next controlled step: use `gemini-embedding-001` as the embedding baseline and run a chunking sweep while keeping store, index, search, and dataset fixed.
+
+## Wave 3 LLM-free macro chunking results
+
+All completed rows use full SciFact, Gemini embeddings, Qdrant HNSW cosine, dense top-k5, no reranker, no tool policy, and no LLM generation.
+
+| chunking | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | p50 ms | p95 ms | projected 1m query cost |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| token 1024/128 | 0.9567 | 0.2147 | 0.9509 | 0.8688 | 0.8869 | 977.78 | 1181.49 | 3.52 |
+| token 512/64 | 0.9533 | 0.2261 | 0.9476 | 0.8688 | 0.8861 | 1102.24 | 1282.03 | 3.52 |
+| token 2048/256 | 0.9567 | 0.2140 | 0.9509 | 0.8688 | 0.8869 | 1037.36 | 1229.87 | 3.52 |
+| sentence 1024/128 | 0.9567 | 0.2147 | 0.9509 | 0.8688 | 0.8869 | 1000.22 | 1206.27 | 3.52 |
+
+## Wave 3 interpretation
+
+- Token 1024/128 remains the preferred baseline: it ties the best Recall@k and NDCG@k while keeping the lowest latency among tied variants.
+- Token 512/64 slightly improves Precision@k, but loses Recall@k/NDCG@k and is slower, so it is not a better general baseline.
+- Token 2048/256 and sentence 1024/128 match quality but add latency, so they do not justify replacing the simpler token 1024/128 baseline.
+- Semantic chunking produced no valid metrics in this wave after a long embedding-only run, so it is excluded from the decision path for now.
