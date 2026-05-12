@@ -48,7 +48,7 @@ All rows use the same full SciFact split, Qdrant HNSW cosine store, token 1024/1
 - `text-embedding-3-large` and `pplx-embed-v1-4b` are close; `pplx-4b` has slightly lower NDCG but better p50/p95 latency and lower projected query cost.
 - `text-embedding-ada-002` is worse than the current baseline and should not be used for the next retrieval sweeps.
 - `mistral-embed-2312` was attempted after Gemini but produced no artifact after a long OpenRouter run; keep it out of the decision path unless its provider stability improves.
-- Next controlled step: use `gemini-embedding-001` as the embedding baseline and run a chunking sweep while keeping store, index, search, and dataset fixed.
+- After the embedding sweep, chunking/search sweeps use `gemini-embedding-001` as the fixed embedding baseline.
 
 ## Wave 3 LLM-free macro chunking results
 
@@ -67,3 +67,21 @@ All completed rows use full SciFact, Gemini embeddings, Qdrant HNSW cosine, dens
 - Token 512/64 slightly improves Precision@k, but loses Recall@k/NDCG@k and is slower, so it is not a better general baseline.
 - Token 2048/256 and sentence 1024/128 match quality but add latency, so they do not justify replacing the simpler token 1024/128 baseline.
 - Semantic chunking produced no valid metrics in this wave after a long embedding-only run, so it is excluded from the decision path for now.
+
+## Wave 4 LLM-free macro search results
+
+All rows use full SciFact, Gemini embeddings, token 1024/128 chunks, Qdrant HNSW cosine, no reranker, no tool policy, and no LLM generation.
+
+| search | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | p50 ms | p95 ms | projected 1m query cost |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| dense top-k5 | 0.9567 | 0.2147 | 0.9509 | 0.8688 | 0.8869 | 977.78 | 1181.49 | 3.52 |
+| dense top-k10 | 0.9767 | 0.1108 | 0.9750 | 0.8716 | 0.8956 | 1092.50 | 1359.70 | 3.52 |
+| dense MMR top-k10 | 0.9100 | 0.0987 | 0.8935 | 0.8394 | 0.8371 | 4381.35 | 5204.48 | 3.52 |
+| hybrid RRF top-k10 | 0.9700 | 0.1094 | 0.9670 | 0.7479 | 0.7975 | 1974.43 | 2180.90 | 3.52 |
+
+## Wave 4 interpretation
+
+- Dense top-k10 is the best completed search variant: it improves Recall@k and NDCG@k over dense top-k5 with moderate latency increase.
+- Dense MMR is worse on every quality metric and much slower, so it should not be used in the main path.
+- Hybrid RRF improves Recall@k over top-k5 but loses badly on MRR@k/NDCG@k and is slower than dense top-k10, so lexical fusion is not useful for the SciFact main baseline.
+- Current retrieval baseline: Gemini embeddings, token 1024/128 chunks, Qdrant HNSW cosine, dense top-k10, no reranker/tool policy/LLM generation.
