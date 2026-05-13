@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 from time import sleep
@@ -71,6 +72,7 @@ class LlmChunkingPreflight(BaseModel):
     cached_plans: int
     missing_plans: int
     estimated_llm_calls: int
+    estimated_llm_batch_calls: int
     model: str
 
 
@@ -286,13 +288,15 @@ class LlmSemanticChunker:
             tokens += sum(unit.token_count for unit in doc_units)
             if self._cache_path(document).exists():
                 cached += 1
+        missing = len(docs) - cached
         return LlmChunkingPreflight(
             documents=len(docs),
             units=units,
             tokens=tokens,
             cached_plans=cached,
-            missing_plans=len(docs) - cached,
-            estimated_llm_calls=len(docs) - cached,
+            missing_plans=missing,
+            estimated_llm_calls=missing,
+            estimated_llm_batch_calls=math.ceil(missing / self._batch_size) if self._batch_planner is not None else missing,
             model=self._model,
         )
 

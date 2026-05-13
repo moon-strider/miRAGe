@@ -187,6 +187,8 @@ def preflight_llm_chunking(spec: ResolvedSpec, documents: list[Document]) -> Llm
     chunker = LlmSemanticChunker(
         config,
         boundary_planner=lambda units, max_tokens: (_ for _ in ()).throw(RuntimeError("preflight does not call LLM")),
+        batch_boundary_planner=lambda requests: (_ for _ in ()).throw(RuntimeError("preflight does not call LLM")),
+        batch_size=spec.llm_chunking_batch_size,
         cache_dir=ArtifactLayout(spec).chunk_plans_dir(),
         model=spec.semantic_chunking_model,
     )
