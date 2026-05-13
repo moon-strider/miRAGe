@@ -73,6 +73,13 @@ top_k = 50
 mrr_depth = 50
 distance = "cosine"
 
+[search_algorithms.search-dense-candidates50-topk10-v1]
+kind = "dense"
+top_k = 10
+mrr_depth = 10
+distance = "cosine"
+dense_top_k = 50
+
 [search_algorithms.search-sparse-bm25-topk10-v1]
 kind = "sparse"
 top_k = 10
@@ -180,6 +187,26 @@ batch_size = 16
 kind = "cross-encoder"
 model = "jinaai/jina-reranker-v1-turbo-en"
 batch_size = 16
+
+[rerankers.rerank-bge-base-v1]
+kind = "cross-encoder"
+model = "BAAI/bge-reranker-base"
+batch_size = 8
+
+[rerankers.rerank-jina-v2-base-multilingual]
+kind = "cross-encoder"
+model = "jinaai/jina-reranker-v2-base-multilingual"
+batch_size = 8
+
+[rerankers.rerank-cohere-4-fast-openrouter]
+kind = "openrouter-rerank"
+model = "cohere/rerank-4-fast"
+batch_size = 64
+
+[rerankers.rerank-cohere-4-pro-openrouter]
+kind = "openrouter-rerank"
+model = "cohere/rerank-4-pro"
+batch_size = 64
 
 [tool_policies.none]
 kind = "none"

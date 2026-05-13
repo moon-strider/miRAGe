@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from mirage.faiss_store import build_faiss_index, load_faiss_index, save_faiss_index, search_faiss_index
 from mirage.reranking import rerank_items
 from mirage.retrieval import rrf_fuse, sparse_search
@@ -115,6 +117,7 @@ def test_faiss_results_can_be_reranked(monkeypatch) -> None:
         reranker_batch_size=8,
         question="finance",
         items=dense,
+        env=SimpleNamespace(),
     )
 
     assert reranked[0].chunk_id == "doc-002::chunk-0000"

@@ -185,7 +185,7 @@ def retrieve(spec: ResolvedSpec, question: str, qid: str | None = None) -> tuple
     dense_limit = spec.search_dense_top_k or spec.top_k
     sparse_limit = spec.search_sparse_top_k or spec.top_k
     if spec.search_kind == "dense":
-        results = _search_store(spec, query_vector, limit=spec.top_k)
+        results = _search_store(spec, query_vector, limit=dense_limit)
     elif spec.search_kind == "sparse":
         results = sparse_search(question, _scroll_all_store_items(spec), top_k=spec.top_k)
     elif spec.search_kind == "hybrid":
@@ -208,7 +208,8 @@ def retrieve(spec: ResolvedSpec, question: str, qid: str | None = None) -> tuple
         reranker_batch_size=spec.reranker_batch_size,
         question=question,
         items=results,
-    )
+        env=spec.env,
+    )[: spec.top_k]
 
     retrieval_latency_ms = round((perf_counter() - started) * 1000, 2)
     retrieval = RetrievalResult(

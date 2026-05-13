@@ -266,6 +266,25 @@ def test_agentic_experiment_includes_reranker_axis() -> None:
     assert {spec.reranker_kind for spec in specs} == {"none", "cross-encoder"}
 
 
+def test_controlled_reranking_experiment_uses_candidate_pool() -> None:
+    specs = load_experiment_specs(
+        "studies/rag-foundation",
+        overrides={"study_experiment_id": "reranking-controlled", "generation_model_id": "none"},
+    )
+
+    assert len(specs) == 4
+    assert {spec.search_algorithm_id for spec in specs} == {"search-dense-candidates50-topk10-v1"}
+    assert {spec.top_k for spec in specs} == {10}
+    assert {spec.search_dense_top_k for spec in specs} == {50}
+    assert {spec.reranker_id for spec in specs} == {
+        "rerank-bge-base-v1",
+        "rerank-jina-v2-base-multilingual",
+        "rerank-cohere-4-fast-openrouter",
+        "rerank-cohere-4-pro-openrouter",
+    }
+    assert {spec.reranker_kind for spec in specs} == {"cross-encoder", "openrouter-rerank"}
+
+
 def test_store_backend_experiment_includes_faiss_runtime() -> None:
     specs = load_experiment_specs(
         "studies/rag-foundation",

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from mirage.reranking import rerank_items
 from mirage.retrieval import mmr_search, rrf_fuse, sparse_search
 from mirage.schemas import RetrievedItem
@@ -85,6 +87,7 @@ def test_rerank_items_reorders_results(monkeypatch) -> None:
         reranker_batch_size=8,
         question="finance",
         items=items,
+        env=SimpleNamespace(),
     )
 
     assert reranked[0].chunk_id == "doc-002::chunk-0000"
@@ -108,6 +111,8 @@ def test_rerank_items_supports_multiple_registered_models(monkeypatch) -> None:
         ("rerank-minilm-l12-v1", "Xenova/ms-marco-MiniLM-L-12-v2"),
         ("rerank-jina-tiny-v1", "jinaai/jina-reranker-v1-tiny-en"),
         ("rerank-jina-turbo-v1", "jinaai/jina-reranker-v1-turbo-en"),
+        ("rerank-bge-base-v1", "BAAI/bge-reranker-base"),
+        ("rerank-jina-v2-base-multilingual", "jinaai/jina-reranker-v2-base-multilingual"),
     ]:
         rerank_items(
             reranker_id=reranker_id,
@@ -116,10 +121,60 @@ def test_rerank_items_supports_multiple_registered_models(monkeypatch) -> None:
             reranker_batch_size=16,
             question="finance",
             items=[_item("doc-001::chunk-0000", "alpha")],
+            env=SimpleNamespace(),
         )
 
     assert seen_models == [
         "Xenova/ms-marco-MiniLM-L-12-v2",
         "jinaai/jina-reranker-v1-tiny-en",
         "jinaai/jina-reranker-v1-turbo-en",
+        "BAAI/bge-reranker-base",
+        "jinaai/jina-reranker-v2-base-multilingual",
     ]
+
+
+def test_openrouter_reranker_uses_rerank_api(monkeypatch) -> None:
+    items = [
+        _item("doc-001::chunk-0000", "apples"),
+        _item("doc-002::chunk-0000", "bonds"),
+    ]
+    requests = []
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"results": [{"index": 1, "relevance_score": 0.9}, {"index": 0, "relevance_score": 0.1}]}
+
+    class FakeClient:
+        def __init__(self, timeout: float) -> None:
+            self.timeout = timeout
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback) -> None:
+            return None
+
+        def post(self, url: str, headers: dict, json: dict) -> FakeResponse:
+            requests.append((url, headers, json))
+            return FakeResponse()
+
+    monkeypatch.setattr("mirage.reranking.httpx.Client", FakeClient)
+
+    reranked = rerank_items(
+        reranker_id="rerank-cohere-4-fast-openrouter",
+        reranker_kind="openrouter-rerank",
+        reranker_model="cohere/rerank-4-fast",
+        reranker_batch_size=8,
+        question="finance",
+        items=items,
+        env=SimpleNamespace(openrouter_api_key="openrouter-key", openrouter_base_url="https://openrouter.ai/api/v1"),
+    )
+
+    assert reranked[0].chunk_id == "doc-002::chunk-0000"
+    assert requests[0][0] == "https://openrouter.ai/api/v1/rerank"
+    assert requests[0][1]["Authorization"] == "Bearer openrouter-key"
+    assert requests[0][2]["model"] == "cohere/rerank-4-fast"
+    assert requests[0][2]["top_n"] == 2

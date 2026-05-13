@@ -58,6 +58,17 @@ search_algorithm_id = "search-dense-topk10-v1"
 reranker_id = "rerank-jina-tiny-v1"
 
 [[experiments]]
+id = "reranking-controlled"
+store_embedding_model_id = "emb-gemini-embedding-001"
+query_embedding_model_id = "emb-gemini-embedding-001"
+chunking_variant_id = "chunk-token-1024-128-v1"
+chunking_model_id = "none"
+search_algorithm_id = "search-dense-candidates50-topk10-v1"
+
+[experiments.matrix]
+reranker_id = ["rerank-bge-base-v1", "rerank-jina-v2-base-multilingual", "rerank-cohere-4-fast-openrouter", "rerank-cohere-4-pro-openrouter"]
+
+[[experiments]]
 id = "semantic-chunking"
 chunking_variant_id = "chunk-semantic-v1"
 chunking_model_id = "emb-gemini-embedding-001"
