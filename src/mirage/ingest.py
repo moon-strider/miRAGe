@@ -52,6 +52,7 @@ def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | Embed
         semantic_min_sentences_per_chunk=spec.semantic_min_sentences_per_chunk,
         llm_chunking_max_retries=spec.llm_chunking_max_retries,
         llm_chunking_rate_limit_backoff_seconds=spec.llm_chunking_rate_limit_backoff_seconds,
+        llm_chunking_batch_size=spec.llm_chunking_batch_size,
     )
     if spec.chunking_kind == "embedding-boundary":
         return EmbeddingBoundaryChunker(config, embedder=_semantic_sentence_embedder(spec))
@@ -66,6 +67,8 @@ def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | Embed
         return LlmSemanticChunker(
             config,
             boundary_planner=lambda units, max_tokens: planner.decide_boundary(units=units, max_chunk_tokens=max_tokens),
+            batch_boundary_planner=planner.decide_boundaries,
+            batch_size=spec.llm_chunking_batch_size,
             cache_dir=ArtifactLayout(spec).chunk_plans_dir(),
             model=spec.semantic_chunking_model,
         )
@@ -179,6 +182,7 @@ def preflight_llm_chunking(spec: ResolvedSpec, documents: list[Document]) -> Llm
         chunking_model_id=spec.chunking_model_id,
         llm_chunking_max_retries=spec.llm_chunking_max_retries,
         llm_chunking_rate_limit_backoff_seconds=spec.llm_chunking_rate_limit_backoff_seconds,
+        llm_chunking_batch_size=spec.llm_chunking_batch_size,
     )
     chunker = LlmSemanticChunker(
         config,

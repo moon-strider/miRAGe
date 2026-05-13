@@ -31,6 +31,21 @@ class BoundaryDecision(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
+class BatchBoundaryDecision(BoundaryDecision):
+    request_id: str
+
+
+class BatchBoundaryResponse(BaseModel):
+    decisions: list[BatchBoundaryDecision]
+
+    @field_validator("decisions")
+    @classmethod
+    def _decisions_not_empty(cls, decisions: list[BatchBoundaryDecision]) -> list[BatchBoundaryDecision]:
+        if not decisions:
+            raise ValueError("batch response must contain decisions")
+        return decisions
+
+
 class LlmChunkPlan(BaseModel):
     document_hash: str
     model: str
@@ -116,6 +131,42 @@ class OpenRouterBoundaryPlanner:
                 messages.append({"role": "assistant", "content": raw})
         raise ValueError(f"LLM chunk boundary output stayed invalid after retries: {last_error}")
 
+    def decide_boundaries(
+        self,
+        requests: list[tuple[str, list[SourceUnit], int]],
+    ) -> dict[str, BoundaryDecision]:
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a document segmentation model for RAG ingestion. "
+                    "For each request, read ordered source units and choose the first unit where a new semantic chunk should start. "
+                    "Return strict JSON only with one decision per request_id. Do not rewrite source text. "
+                    "Use null boundary_unit_id only if all units in that request belong in one coherent chunk."
+                ),
+            },
+            {"role": "user", "content": self._batch_prompt(requests, None)},
+        ]
+        last_error: str | None = None
+        for attempt in range(self._max_retries + 1):
+            if attempt > 0:
+                messages.append({"role": "user", "content": self._batch_prompt(requests, last_error)})
+            response = self._create_completion(messages)
+            raw = response.choices[0].message.content or ""
+            try:
+                parsed = BatchBoundaryResponse.model_validate(json.loads(raw))
+                decisions = {decision.request_id: BoundaryDecision.model_validate(decision.model_dump()) for decision in parsed.decisions}
+                expected_ids = {request_id for request_id, _, _ in requests}
+                if set(decisions) != expected_ids:
+                    raise ValueError("batch response must contain exactly one decision per request_id")
+                for request_id, units, max_chunk_tokens in requests:
+                    self._validate_decision(decisions[request_id], units, max_chunk_tokens)
+                return decisions
+            except (json.JSONDecodeError, ValidationError, ValueError) as error:
+                last_error = str(error)
+                messages.append({"role": "assistant", "content": raw})
+        raise ValueError(f"LLM batch chunk boundary output stayed invalid after retries: {last_error}")
+
     def _create_completion(self, messages: list[dict[str, str]]) -> object:
         while True:
             try:
@@ -145,6 +196,31 @@ class OpenRouterBoundaryPlanner:
             payload["previous_validation_error"] = error
         return json.dumps(payload, ensure_ascii=False)
 
+    def _batch_prompt(self, requests: list[tuple[str, list[SourceUnit], int]], error: str | None) -> str:
+        payload = {
+            "output_schema": {
+                "decisions": [
+                    {
+                        "request_id": "same request_id as input",
+                        "boundary_unit_id": "string or null; first unit_id that starts the next chunk for this request",
+                        "reason": "short reason for the boundary decision",
+                        "confidence": "number between 0 and 1",
+                    }
+                ]
+            },
+            "requests": [
+                {
+                    "request_id": request_id,
+                    "max_chunk_tokens": max_chunk_tokens,
+                    "units": [unit.model_dump(mode="json") for unit in units],
+                }
+                for request_id, units, max_chunk_tokens in requests
+            ],
+        }
+        if error:
+            payload["previous_validation_error"] = error
+        return json.dumps(payload, ensure_ascii=False)
+
     def _validate_decision(self, decision: BoundaryDecision, units: list[SourceUnit], max_chunk_tokens: int) -> None:
         validate_boundary_decision(decision, units, max_chunk_tokens)
 
@@ -155,6 +231,8 @@ class LlmSemanticChunker:
         config: ChunkingConfig,
         *,
         boundary_planner: Callable[[list[SourceUnit], int], BoundaryDecision],
+        batch_boundary_planner: Callable[[list[tuple[str, list[SourceUnit], int]]], dict[str, BoundaryDecision]] | None = None,
+        batch_size: int = 16,
         cache_dir: Path | None = None,
         model: str = "test-model",
         prompt_version: str = "llm-semantic-boundary-v1",
@@ -163,6 +241,8 @@ class LlmSemanticChunker:
         self._config = config
         self._encoding = tiktoken.get_encoding(config.tokenizer)
         self._planner = boundary_planner
+        self._batch_planner = batch_boundary_planner
+        self._batch_size = batch_size
         self._cache_dir = cache_dir
         self._model = model
         self._prompt_version = prompt_version
@@ -227,10 +307,108 @@ class LlmSemanticChunker:
         return self._materialize(document, units, plan)
 
     def chunk_documents(self, documents: Iterable[Document]) -> list[Chunk]:
+        docs = list(documents)
+        if self._batch_planner is not None:
+            return self._chunk_documents_batched(docs)
         output: list[Chunk] = []
-        for document in documents:
+        for document in docs:
             output.extend(self.chunk_document(document))
         return output
+
+    def _chunk_documents_batched(self, documents: list[Document]) -> list[Chunk]:
+        outputs: list[list[Chunk]] = [[] for _ in documents]
+        states: list[dict[str, object]] = []
+        for index, document in enumerate(documents):
+            units = self.unitize_document(document)
+            if not units:
+                continue
+            plan = self._load_plan(document, units)
+            if plan is not None:
+                outputs[index] = self._materialize(document, units, plan)
+                continue
+            states.append({"index": index, "document": document, "units": units, "chunks": [], "decisions": [], "start": 0})
+
+        active = states
+        while active:
+            requests: list[tuple[str, list[SourceUnit], int]] = []
+            request_states: dict[str, dict[str, object]] = {}
+            next_active: list[dict[str, object]] = []
+            for state in active:
+                units = state["units"]
+                start = state["start"]
+                if not isinstance(units, list) or not isinstance(start, int):
+                    raise TypeError("Invalid LLM chunking state")
+                window = self._window(units, start)
+                if start > 0 and start + len(window) >= len(units) and sum(unit.token_count for unit in window) <= self._config.chunk_size:
+                    state_chunks = state["chunks"]
+                    if not isinstance(state_chunks, list):
+                        raise TypeError("Invalid LLM chunking chunks state")
+                    state_chunks.append([unit.unit_id for unit in window])
+                    self._finish_batched_state(state, outputs)
+                    continue
+                request_id = f"r_{len(requests):04d}"
+                requests.append((request_id, window, self._config.chunk_size))
+                request_states[request_id] = state
+                if len(requests) >= self._batch_size:
+                    break
+
+            if requests:
+                if self._batch_planner is None:
+                    raise RuntimeError("Batch planner is not configured")
+                decisions = self._batch_planner(requests)
+                for request_id, decision in decisions.items():
+                    state = request_states[request_id]
+                    units = state["units"]
+                    start = state["start"]
+                    if not isinstance(units, list) or not isinstance(start, int):
+                        raise TypeError("Invalid LLM chunking state")
+                    window = self._window(units, start)
+                    validate_boundary_decision(decision, window, self._config.chunk_size)
+                    state_decisions = state["decisions"]
+                    state_chunks = state["chunks"]
+                    if not isinstance(state_decisions, list) or not isinstance(state_chunks, list):
+                        raise TypeError("Invalid LLM chunking decision state")
+                    state_decisions.append(decision)
+                    if decision.boundary_unit_id is None:
+                        boundary_offset = len(window)
+                    else:
+                        boundary_offset = next(index for index, unit in enumerate(window) if unit.unit_id == decision.boundary_unit_id)
+                    if boundary_offset <= 0:
+                        raise ValueError("LLM chunk boundary must not point at the first unit")
+                    state_chunks.append([unit.unit_id for unit in units[start : start + boundary_offset]])
+                    state["start"] = start + boundary_offset
+                    if state["start"] >= len(units):
+                        self._finish_batched_state(state, outputs)
+                    else:
+                        next_active.append(state)
+
+            processed_ids = {id(state) for state in request_states.values()}
+            for state in active:
+                if id(state) not in processed_ids and state not in next_active:
+                    next_active.append(state)
+            active = next_active
+
+        return [chunk for group in outputs for chunk in group]
+
+    def _finish_batched_state(self, state: dict[str, object], outputs: list[list[Chunk]]) -> None:
+        document = state["document"]
+        units = state["units"]
+        if not isinstance(document, Document) or not isinstance(units, list):
+            raise TypeError("Invalid completed LLM chunking state")
+        plan = LlmChunkPlan(
+            document_hash=_document_hash(document),
+            model=self._model,
+            prompt_version=self._prompt_version,
+            schema_version=self._schema_version,
+            chunks=state["chunks"],
+            decisions=state["decisions"],
+        )
+        validate_chunk_plan(plan, units)
+        self._write_plan(document, plan)
+        index = state["index"]
+        if not isinstance(index, int):
+            raise TypeError("Invalid completed LLM chunking index")
+        outputs[index] = self._materialize(document, units, plan)
 
     def _build_plan(self, document: Document, units: list[SourceUnit]) -> LlmChunkPlan:
         chunks: list[list[str]] = []
