@@ -230,6 +230,8 @@ def ingest_spec(spec: ResolvedSpec, reset: bool = False) -> dict[str, object]:
         batch_size=spec.store_embedding_batch_size,
         env=spec.env,
         pricing_input_per_1m_tokens_usd=spec.store_embedding_pricing_input_per_1m_tokens_usd,
+        cache_dir=layout.embeddings_dir(),
+        cache_namespace=f"store/{spec.dataset_id}/{spec.load_variant_id}/{spec.store_embedding_model_id}",
     )
 
     if not vectors:

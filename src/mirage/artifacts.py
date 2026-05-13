@@ -36,6 +36,9 @@ class ArtifactLayout:
     def store_dir(self) -> Path:
         return self.root / "store" / self.spec.dataset_id / self.spec.load_variant_id / self.spec.store_variant_id
 
+    def embeddings_dir(self) -> Path:
+        return self.root / "embeddings"
+
     def retrieval_dir(self) -> Path:
         return (
             self.root

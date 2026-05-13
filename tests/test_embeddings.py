@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -111,3 +112,48 @@ def test_openrouter_embeddings_retry_sdk_none_data_type_error(monkeypatch: pytes
     assert vectors == [[3.0, 4.0]]
     assert token_count == 11
     assert cost == 0.0
+
+
+def test_embeddings_reuse_persistent_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    client = _FakeEmbeddingsClient()
+    monkeypatch.setattr("mirage.embeddings._make_openrouter_client", lambda env: client)
+
+    kwargs = {
+        "provider": "openrouter",
+        "model": "openai/text-embedding-3-small",
+        "texts": ["doc-1", "doc-2"],
+        "batch_size": 2,
+        "env": SimpleNamespace(openrouter_api_key="test", openrouter_base_url="https://openrouter.ai/api/v1"),
+        "pricing_input_per_1m_tokens_usd": 0.02,
+        "cache_dir": tmp_path / "embeddings",
+        "cache_namespace": "store/scifact",
+    }
+
+    first_vectors, first_tokens, first_cost = embed_texts(**kwargs)
+    second_vectors, second_tokens, second_cost = embed_texts(**kwargs)
+
+    assert len(client.calls) == 1
+    assert first_vectors == second_vectors
+    assert first_tokens == second_tokens
+    assert first_cost == second_cost
+
+
+def test_embeddings_cache_only_requests_missing_texts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    client = _FakeEmbeddingsClient()
+    monkeypatch.setattr("mirage.embeddings._make_openrouter_client", lambda env: client)
+
+    common = {
+        "provider": "openrouter",
+        "model": "openai/text-embedding-3-small",
+        "batch_size": 8,
+        "env": SimpleNamespace(openrouter_api_key="test", openrouter_base_url="https://openrouter.ai/api/v1"),
+        "pricing_input_per_1m_tokens_usd": 0.02,
+        "cache_dir": tmp_path / "embeddings",
+        "cache_namespace": "queries/scifact",
+    }
+
+    embed_texts(texts=["q1", "q2"], **common)
+    vectors, _, _ = embed_texts(texts=["q1", "q2", "q3"], **common)
+
+    assert [batch for _, batch in client.calls] == [["q1", "q2"], ["q3"]]
+    assert vectors == [[0.0, 1.0], [1.0, 1.0], [2.0, 1.0]]

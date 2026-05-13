@@ -19,6 +19,7 @@ from mirage.schemas import AnswerResult, Chunk, RetrievedItem, RetrievalResult
 
 def _semantic_sentence_embedder(spec: ResolvedSpec):
     def _embed(texts: list[str]) -> list[list[float]]:
+        layout = ArtifactLayout(spec)
         vectors, _, _ = embed_texts(
             provider=spec.semantic_embedding_provider,
             model=spec.semantic_embedding_model,
@@ -26,6 +27,8 @@ def _semantic_sentence_embedder(spec: ResolvedSpec):
             batch_size=spec.semantic_embedding_batch_size,
             env=spec.env,
             pricing_input_per_1m_tokens_usd=spec.semantic_embedding_pricing_input_per_1m_tokens_usd,
+            cache_dir=layout.embeddings_dir(),
+            cache_namespace=f"semantic/{spec.dataset_id}/{spec.preprocessing_variant_id}/{spec.chunking_model_id}",
         )
         return vectors
 
@@ -132,6 +135,8 @@ def _search_store_with_vectors(
         batch_size=spec.store_embedding_batch_size,
         env=spec.env,
         pricing_input_per_1m_tokens_usd=spec.store_embedding_pricing_input_per_1m_tokens_usd,
+        cache_dir=ArtifactLayout(spec).embeddings_dir(),
+        cache_namespace=f"store/{spec.dataset_id}/{spec.load_variant_id}/{spec.store_embedding_model_id}",
     )
     return results, vectors
 
@@ -170,6 +175,8 @@ def retrieve(spec: ResolvedSpec, question: str, qid: str | None = None) -> tuple
         batch_size=1,
         env=spec.env,
         pricing_input_per_1m_tokens_usd=spec.query_embedding_pricing_input_per_1m_tokens_usd,
+        cache_dir=ArtifactLayout(spec).embeddings_dir(),
+        cache_namespace=f"query/{spec.evalset_id}/{spec.query_embedding_model_id}",
     )
     query_vector = vectors[0]
     dense_limit = spec.search_dense_top_k or spec.top_k

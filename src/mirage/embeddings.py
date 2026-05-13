@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterable
+from pathlib import Path
 from time import sleep
 
 import httpx
@@ -62,22 +65,55 @@ def _create_embeddings_with_retries(client: OpenAI, *, model: str, batch: list[s
     raise RuntimeError(f"Embedding request failed for {model}: {last_error}")
 
 
-def embed_texts(
+def _safe_cache_segment(value: str) -> str:
+    return "".join(character if character.isalnum() or character in "._-" else "-" for character in value).strip("-") or "default"
+
+
+def _embedding_cache_path(cache_dir: Path, *, cache_namespace: str, provider: str, model: str, text: str) -> Path:
+    text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    namespace = Path(*[_safe_cache_segment(part) for part in cache_namespace.split("/") if part])
+    model_key = _safe_cache_segment(f"{provider}-{model}")
+    return cache_dir / namespace / model_key / f"{text_hash}.json"
+
+
+def _read_cached_vector(path: Path, *, provider: str, model: str, text: str) -> tuple[list[float], int] | None:
+    if not path.exists():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("provider") != provider or payload.get("model") != model:
+        return None
+    if payload.get("text_sha256") != hashlib.sha256(text.encode("utf-8")).hexdigest():
+        return None
+    vector = payload.get("vector")
+    if not isinstance(vector, list):
+        return None
+    return [float(value) for value in vector], int(payload.get("token_count", estimate_token_count([text])))
+
+
+def _write_cached_vector(path: Path, *, provider: str, model: str, text: str, vector: list[float], token_count: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "provider": provider,
+        "model": model,
+        "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "token_count": token_count,
+        "dimensions": len(vector),
+        "vector": vector,
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+
+
+def _embed_uncached_texts(
     *,
     provider: str,
     model: str,
     texts: list[str],
     batch_size: int,
     env: EnvironmentSettings,
-    pricing_input_per_1m_tokens_usd: float,
-) -> tuple[list[list[float]], int, float]:
-    if not texts:
-        return [], 0, 0.0
-
+) -> tuple[list[list[float]], int]:
     if provider == "fastembed":
         embedder = TextEmbedding(model_name=model)
-        vectors = [vector.tolist() for vector in embedder.embed(texts, batch_size=batch_size)]
-        return vectors, 0, 0.0
+        return [vector.tolist() for vector in embedder.embed(texts, batch_size=batch_size)], 0
 
     if provider == "openrouter":
         client = _make_openrouter_client(env)
@@ -92,7 +128,79 @@ def embed_texts(
                 token_count += int(usage.prompt_tokens)
             else:
                 token_count += estimate_token_count(batch)
-        cost = round((token_count / 1_000_000) * pricing_input_per_1m_tokens_usd, 6)
-        return vectors, token_count, cost
+        return vectors, token_count
 
     raise NotImplementedError(f"Unsupported embedding provider: {provider}")
+
+
+def embed_texts(
+    *,
+    provider: str,
+    model: str,
+    texts: list[str],
+    batch_size: int,
+    env: EnvironmentSettings,
+    pricing_input_per_1m_tokens_usd: float,
+    cache_dir: Path | None = None,
+    cache_namespace: str = "default",
+) -> tuple[list[list[float]], int, float]:
+    if not texts:
+        return [], 0, 0.0
+
+    if cache_dir is None:
+        vectors, token_count = _embed_uncached_texts(provider=provider, model=model, texts=texts, batch_size=batch_size, env=env)
+        if provider == "openrouter":
+            cost = round((token_count / 1_000_000) * pricing_input_per_1m_tokens_usd, 6)
+            return vectors, token_count, cost
+        return vectors, 0, 0.0
+
+    vectors_by_index: dict[int, list[float]] = {}
+    tokens_by_index: dict[int, int] = {}
+    missing_indexes: list[int] = []
+    missing_texts: list[str] = []
+    missing_paths: list[Path] = []
+
+    for index, text in enumerate(texts):
+        path = _embedding_cache_path(cache_dir, cache_namespace=cache_namespace, provider=provider, model=model, text=text)
+        cached = _read_cached_vector(path, provider=provider, model=model, text=text)
+        if cached is None:
+            missing_indexes.append(index)
+            missing_texts.append(text)
+            missing_paths.append(path)
+        else:
+            vector, cached_token_count = cached
+            vectors_by_index[index] = vector
+            tokens_by_index[index] = cached_token_count
+
+    if missing_texts:
+        new_vectors, new_token_count = _embed_uncached_texts(
+            provider=provider, model=model, texts=missing_texts, batch_size=batch_size, env=env
+        )
+        estimated_missing_tokens = [estimate_token_count([text]) for text in missing_texts]
+        estimated_total = sum(estimated_missing_tokens) or len(missing_texts)
+        assigned_tokens: list[int] = []
+        remainder = new_token_count
+        for position, estimated_tokens in enumerate(estimated_missing_tokens):
+            if position == len(estimated_missing_tokens) - 1:
+                token_count_for_text = remainder
+            else:
+                token_count_for_text = round((estimated_tokens / estimated_total) * new_token_count)
+                remainder -= token_count_for_text
+            assigned_tokens.append(token_count_for_text)
+        for position, (index, path, text, vector) in enumerate(
+            zip(missing_indexes, missing_paths, missing_texts, new_vectors, strict=True)
+        ):
+            vector_values = [float(value) for value in vector]
+            token_count_for_text = assigned_tokens[position]
+            _write_cached_vector(
+                path, provider=provider, model=model, text=text, vector=vector_values, token_count=token_count_for_text
+            )
+            vectors_by_index[index] = vector_values
+            tokens_by_index[index] = token_count_for_text
+
+    vectors = [vectors_by_index[index] for index in range(len(texts))]
+    token_count = sum(tokens_by_index.values())
+    if provider == "openrouter":
+        cost = round((token_count / 1_000_000) * pricing_input_per_1m_tokens_usd, 6)
+        return vectors, token_count, cost
+    return vectors, 0, 0.0
