@@ -8,7 +8,7 @@ import re
 from time import sleep
 
 import httpx
-from openai import OpenAI, RateLimitError
+from openai import APIStatusError, OpenAI
 from pydantic import BaseModel, Field, ValidationError, field_validator
 import tiktoken
 
@@ -125,8 +125,11 @@ class OpenRouterBoundaryPlanner:
                     messages=messages,
                     response_format={"type": "json_object"},
                 )
-            except RateLimitError:
-                self._sleep(self._rate_limit_backoff_seconds)
+            except APIStatusError as error:
+                if error.status_code == 429 or error.status_code >= 500:
+                    self._sleep(self._rate_limit_backoff_seconds)
+                    continue
+                raise
 
     def _prompt(self, units: list[SourceUnit], max_chunk_tokens: int, error: str | None) -> str:
         payload = {

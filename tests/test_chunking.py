@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import httpx
-from openai import RateLimitError
+from openai import APIStatusError
 
 from mirage.chunking import EmbeddingBoundaryChunker, SentenceChunker, TokenChunker
 from mirage.config import ChunkingConfig
@@ -237,9 +237,7 @@ def test_llm_semantic_chunking_preflight_counts_full_documents(tmp_path) -> None
     assert preflight.estimated_llm_calls == 2
 
 
-def test_openrouter_boundary_planner_retries_429_with_constant_backoff() -> None:
-    request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
-    response = httpx.Response(429, request=request)
+def test_openrouter_boundary_planner_retries_transient_statuses_with_constant_backoff() -> None:
     calls = 0
     sleeps = []
 
@@ -248,7 +246,10 @@ def test_openrouter_boundary_planner_retries_429_with_constant_backoff() -> None
             nonlocal calls
             calls += 1
             if calls <= 2:
-                raise RateLimitError("rate limited", response=response, body=None)
+                status = 429 if calls == 1 else 503
+                request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+                response = httpx.Response(status, request=request)
+                raise APIStatusError("transient", response=response, body=None)
             return SimpleNamespace(
                 choices=[
                     SimpleNamespace(
