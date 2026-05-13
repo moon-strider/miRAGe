@@ -218,6 +218,34 @@ def test_llm_semantic_chunker_batches_document_plans(tmp_path) -> None:
     assert len(list(tmp_path.glob("**/*.json"))) == 2
 
 
+def test_llm_semantic_chunker_batch_state_finishes_remainder_once(tmp_path) -> None:
+    document = Document(
+        doc_id="doc-long",
+        title="Long",
+        source="seed://long",
+        text="Alpha first sentence.\n\nBeta second sentence.\n\nGamma third sentence.",
+    )
+
+    def batch_planner(requests):
+        return {
+            request_id: BoundaryDecision(boundary_unit_id="u_0001", reason="split after first unit", confidence=0.9)
+            for request_id, _, _ in requests
+        }
+
+    chunker = LlmSemanticChunker(
+        ChunkingConfig(kind="semantic", chunk_size=128, chunk_overlap=0, chunking_model_id="gen-test"),
+        boundary_planner=lambda units, max_tokens: BoundaryDecision(boundary_unit_id=None, reason="unused", confidence=1.0),
+        batch_boundary_planner=batch_planner,
+        batch_size=4,
+        cache_dir=tmp_path,
+        model="provider/test",
+    )
+
+    chunks = chunker.chunk_documents([document])
+
+    assert [chunk.metadata["unit_ids"] for chunk in chunks] == [["u_0000"], ["u_0001", "u_0002"]]
+
+
 def test_llm_semantic_chunker_reuses_cached_plan(tmp_path) -> None:
     document = Document(
         doc_id="doc-007",

@@ -337,6 +337,7 @@ class LlmSemanticChunker:
             requests: list[tuple[str, list[SourceUnit], int]] = []
             request_states: dict[str, dict[str, object]] = {}
             next_active: list[dict[str, object]] = []
+            finished_ids: set[int] = set()
             for state in active:
                 units = state["units"]
                 start = state["start"]
@@ -349,6 +350,7 @@ class LlmSemanticChunker:
                         raise TypeError("Invalid LLM chunking chunks state")
                     state_chunks.append([unit.unit_id for unit in window])
                     self._finish_batched_state(state, outputs)
+                    finished_ids.add(id(state))
                     continue
                 request_id = f"r_{len(requests):04d}"
                 requests.append((request_id, window, self._config.chunk_size))
@@ -383,12 +385,13 @@ class LlmSemanticChunker:
                     state["start"] = start + boundary_offset
                     if state["start"] >= len(units):
                         self._finish_batched_state(state, outputs)
+                        finished_ids.add(id(state))
                     else:
                         next_active.append(state)
 
             processed_ids = {id(state) for state in request_states.values()}
             for state in active:
-                if id(state) not in processed_ids and state not in next_active:
+                if id(state) not in processed_ids and id(state) not in finished_ids and state not in next_active:
                     next_active.append(state)
             active = next_active
 
