@@ -5,9 +5,10 @@ import hashlib
 import json
 from pathlib import Path
 import re
+from time import sleep
 
 import httpx
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 from pydantic import BaseModel, Field, ValidationError, field_validator
 import tiktoken
 
@@ -67,16 +68,25 @@ class OpenRouterBoundaryPlanner:
         env: EnvironmentSettings,
         max_retries: int,
         temperature: float = 0.0,
+        rate_limit_backoff_seconds: float = 1.0,
+        sleep_fn: Callable[[float], None] = sleep,
     ) -> None:
         if provider != "openrouter":
             raise NotImplementedError(f"Unsupported LLM chunking provider: {provider}")
         if not env.openrouter_api_key:
             raise RuntimeError("OPENROUTER_API_KEY is required for LLM semantic chunking")
         http_client = httpx.Client(follow_redirects=True, timeout=httpx.Timeout(120.0, connect=10.0))
-        self._client = OpenAI(api_key=env.openrouter_api_key, base_url=env.openrouter_base_url, http_client=http_client)
+        self._client = OpenAI(
+            api_key=env.openrouter_api_key,
+            base_url=env.openrouter_base_url,
+            http_client=http_client,
+            max_retries=0,
+        )
         self._model = model
         self._max_retries = max_retries
         self._temperature = temperature
+        self._rate_limit_backoff_seconds = rate_limit_backoff_seconds
+        self._sleep = sleep_fn
 
     def decide_boundary(self, *, units: list[SourceUnit], max_chunk_tokens: int) -> BoundaryDecision:
         messages = [
@@ -95,12 +105,7 @@ class OpenRouterBoundaryPlanner:
         for attempt in range(self._max_retries + 1):
             if attempt > 0:
                 messages.append({"role": "user", "content": self._prompt(units, max_chunk_tokens, last_error)})
-            response = self._client.chat.completions.create(
-                model=self._model,
-                temperature=self._temperature,
-                messages=messages,
-                response_format={"type": "json_object"},
-            )
+            response = self._create_completion(messages)
             raw = response.choices[0].message.content or ""
             try:
                 decision = BoundaryDecision.model_validate(json.loads(raw))
@@ -110,6 +115,18 @@ class OpenRouterBoundaryPlanner:
                 last_error = str(error)
                 messages.append({"role": "assistant", "content": raw})
         raise ValueError(f"LLM chunk boundary output stayed invalid after retries: {last_error}")
+
+    def _create_completion(self, messages: list[dict[str, str]]) -> object:
+        while True:
+            try:
+                return self._client.chat.completions.create(
+                    model=self._model,
+                    temperature=self._temperature,
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                )
+            except RateLimitError:
+                self._sleep(self._rate_limit_backoff_seconds)
 
     def _prompt(self, units: list[SourceUnit], max_chunk_tokens: int, error: str | None) -> str:
         payload = {

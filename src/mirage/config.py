@@ -19,6 +19,7 @@ class ChunkingConfig(BaseModel):
     semantic_similarity_threshold: float = 0.8
     semantic_min_sentences_per_chunk: int = 2
     llm_chunking_max_retries: int = 2
+    llm_chunking_rate_limit_backoff_seconds: float = 1.0
 
 
 class EnvironmentSettings(BaseSettings):
@@ -72,6 +73,7 @@ class ChunkingVariant(BaseModel):
     chunk_size: int = 500
     chunk_overlap: int = 50
     llm_chunking_max_retries: int = 2
+    llm_chunking_rate_limit_backoff_seconds: float = 1.0
 
 
 class EmbeddingModelEntry(BaseModel):
@@ -170,6 +172,7 @@ class ResolvedSpec(BaseModel):
     semantic_chunking_pricing_input_per_1m_tokens_usd: float = 0.0
     semantic_chunking_pricing_output_per_1m_tokens_usd: float = 0.0
     llm_chunking_max_retries: int = 2
+    llm_chunking_rate_limit_backoff_seconds: float = 1.0
     store_backend_id: str
     store_backend_kind: str
     store_backend_runtime_status: str
@@ -376,6 +379,7 @@ def _build_resolved_spec(
             semantic_chunking_model.pricing_output_per_1m_tokens_usd if semantic_chunking_model is not None else 0.0
         ),
         llm_chunking_max_retries=chunking.llm_chunking_max_retries,
+        llm_chunking_rate_limit_backoff_seconds=chunking.llm_chunking_rate_limit_backoff_seconds,
         store_backend_id=values["store_backend_id"],
         store_backend_kind=store_backend.kind,
         store_backend_runtime_status=store_backend.runtime_status,

@@ -51,6 +51,7 @@ def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | Embed
         semantic_similarity_threshold=spec.semantic_similarity_threshold,
         semantic_min_sentences_per_chunk=spec.semantic_min_sentences_per_chunk,
         llm_chunking_max_retries=spec.llm_chunking_max_retries,
+        llm_chunking_rate_limit_backoff_seconds=spec.llm_chunking_rate_limit_backoff_seconds,
     )
     if spec.chunking_kind == "embedding-boundary":
         return EmbeddingBoundaryChunker(config, embedder=_semantic_sentence_embedder(spec))
@@ -60,6 +61,7 @@ def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | Embed
             model=spec.semantic_chunking_model,
             env=spec.env,
             max_retries=spec.llm_chunking_max_retries,
+            rate_limit_backoff_seconds=spec.llm_chunking_rate_limit_backoff_seconds,
         )
         return LlmSemanticChunker(
             config,
@@ -176,6 +178,7 @@ def preflight_llm_chunking(spec: ResolvedSpec, documents: list[Document]) -> Llm
         chunk_overlap=spec.chunk_overlap,
         chunking_model_id=spec.chunking_model_id,
         llm_chunking_max_retries=spec.llm_chunking_max_retries,
+        llm_chunking_rate_limit_backoff_seconds=spec.llm_chunking_rate_limit_backoff_seconds,
     )
     chunker = LlmSemanticChunker(
         config,

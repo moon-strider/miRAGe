@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+import httpx
+from openai import RateLimitError
+
 from mirage.chunking import EmbeddingBoundaryChunker, SentenceChunker, TokenChunker
 from mirage.config import ChunkingConfig
-from mirage.llm_chunking import BoundaryDecision, LlmSemanticChunker
+from mirage.llm_chunking import BoundaryDecision, LlmSemanticChunker, OpenRouterBoundaryPlanner
 from mirage.schemas import Document
 
 
@@ -230,3 +235,39 @@ def test_llm_semantic_chunking_preflight_counts_full_documents(tmp_path) -> None
     assert preflight.cached_plans == 0
     assert preflight.missing_plans == 2
     assert preflight.estimated_llm_calls == 2
+
+
+def test_openrouter_boundary_planner_retries_429_with_constant_backoff() -> None:
+    request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+    response = httpx.Response(429, request=request)
+    calls = 0
+    sleeps = []
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls <= 2:
+                raise RateLimitError("rate limited", response=response, body=None)
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content='{"boundary_unit_id": null, "reason": "same topic", "confidence": 1.0}'
+                        )
+                    )
+                ]
+            )
+
+    planner = OpenRouterBoundaryPlanner.__new__(OpenRouterBoundaryPlanner)
+    planner._client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+    planner._model = "test/model"
+    planner._temperature = 0.0
+    planner._rate_limit_backoff_seconds = 1.0
+    planner._sleep = sleeps.append
+
+    result = planner._create_completion([])
+
+    assert calls == 3
+    assert sleeps == [1.0, 1.0]
+    assert result.choices[0].message.content.startswith("{")
