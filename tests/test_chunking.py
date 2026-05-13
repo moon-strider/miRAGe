@@ -206,7 +206,7 @@ def test_llm_semantic_chunker_batches_document_plans(tmp_path) -> None:
         ChunkingConfig(kind="semantic", chunk_size=128, chunk_overlap=0, chunking_model_id="gen-test"),
         boundary_planner=lambda units, max_tokens: BoundaryDecision(boundary_unit_id=None, reason="unused", confidence=1.0),
         batch_boundary_planner=batch_planner,
-        batch_size=16,
+        batch_size=4,
         cache_dir=tmp_path,
         model="provider/test",
     )
