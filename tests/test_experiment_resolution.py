@@ -68,7 +68,7 @@ def test_wave1_experiment_directories_resolve_expected_axes() -> None:
     assert rerank.search_algorithm_id == "search-dense-topk10-v1"
     assert rerank.reranker_id == "rerank-jina-tiny-v1"
     assert semantic.chunking_kind == "semantic"
-    assert semantic.chunking_model_id == "gen-gemma-4-31b-free"
+    assert semantic.chunking_model_id == "gen-nemotron-3-nano-omni-free"
     assert semantic.semantic_chunking_provider == "openrouter"
     assert embedding_boundary.chunking_kind == "embedding-boundary"
     assert embedding_boundary.chunking_model_id == "emb-text-embedding-3-small"
@@ -126,9 +126,9 @@ def test_semantic_chunking_experiment_resolves_single_llm_planning_preset() -> N
     assert len(specs) == 1
     spec = specs[0]
     assert spec.chunking_kind == "semantic"
-    assert spec.chunking_model_id == "gen-gemma-4-31b-free"
+    assert spec.chunking_model_id == "gen-nemotron-3-nano-omni-free"
     assert spec.semantic_chunking_provider == "openrouter"
-    assert spec.semantic_chunking_model == "google/gemma-4-31b-it:free"
+    assert spec.semantic_chunking_model == "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
     assert spec.semantic_embedding_provider == "none"
     assert "prompt-llm-semantic-boundary-v1" in spec.load_variant_id
     assert "schema-llm-chunk-plan-v1" in spec.load_variant_id
