@@ -47,7 +47,6 @@ All rows use the same full SciFact split, Qdrant HNSW cosine store, token 1024/1
 - Compared with `text-embedding-3-small`, Gemini improves Recall@k from 0.7771 to 0.9509 and NDCG@k from 0.6912 to 0.8869.
 - `text-embedding-3-large` and `pplx-embed-v1-4b` are close; `pplx-4b` has slightly lower NDCG but better p50/p95 latency and lower projected query cost.
 - `text-embedding-ada-002` is worse than the current baseline and should not be used for the next retrieval sweeps.
-- `mistral-embed-2312` was attempted after Gemini but produced no artifact after a long OpenRouter run; keep it out of the decision path unless its provider stability improves.
 - After the embedding sweep, chunking/search sweeps use `gemini-embedding-001` as the fixed embedding baseline.
 
 ## Wave 3 LLM-free macro chunking results

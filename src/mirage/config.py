@@ -303,10 +303,16 @@ def _build_resolved_spec(
             f"not {values['store_backend_id']}"
         )
 
-    load_variant_id = (
-        f"load-{values['preprocessing_variant_id']}__"
-        f"{values['chunking_variant_id']}__{values['chunking_model_id']}"
-    )
+    load_parts = [
+        f"load-{values['preprocessing_variant_id']}",
+        values["chunking_variant_id"],
+        values["chunking_model_id"],
+    ]
+    if chunking.kind == "semantic":
+        threshold = str(values.get("semantic_similarity_threshold", 0.8)).replace(".", "p")
+        min_sentences = str(values.get("semantic_min_sentences_per_chunk", 2))
+        load_parts.extend([f"th-{threshold}", f"min-{min_sentences}"])
+    load_variant_id = "__".join(load_parts)
     store_variant_id = (
         f"store-{values['store_backend_id']}__{values['store_index_variant_id']}__"
         f"{values['store_embedding_model_id']}"

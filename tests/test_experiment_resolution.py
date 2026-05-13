@@ -123,10 +123,54 @@ def test_semantic_chunking_experiment_resolves_single_llm_free_preset() -> None:
     assert spec.store_embedding_model_id == "emb-gemini-embedding-001"
     assert spec.query_embedding_model_id == "emb-gemini-embedding-001"
     assert spec.semantic_embedding_provider == "openrouter"
-    assert spec.semantic_similarity_threshold == 0.85
+    assert spec.semantic_similarity_threshold == 0.75
     assert spec.semantic_min_sentences_per_chunk == 2
+    assert "th-0p75" in spec.load_variant_id
+    assert "min-2" in spec.load_variant_id
     assert spec.chunk_size == 1024
     assert spec.tool_policy_id == "none"
+
+
+def test_semantic_chunking_threshold_changes_load_artifact_key() -> None:
+    low = load_experiment_specs(
+        "studies/rag-foundation",
+        overrides={
+            "study_experiment_id": "semantic-chunking",
+            "generation_model_id": "none",
+            "semantic_similarity_threshold": 0.65,
+        },
+    )[0]
+    high = load_experiment_specs(
+        "studies/rag-foundation",
+        overrides={
+            "study_experiment_id": "semantic-chunking",
+            "generation_model_id": "none",
+            "semantic_similarity_threshold": 0.75,
+        },
+    )[0]
+
+    assert low.load_variant_id != high.load_variant_id
+    assert "th-0p65" in low.load_variant_id
+    assert "th-0p75" in high.load_variant_id
+
+
+def test_controlled_semantic_chunking_experiment_resolves_three_cases() -> None:
+    specs = load_experiment_specs(
+        "studies/rag-foundation",
+        overrides={"study_experiment_id": "semantic-chunking-controlled", "generation_model_id": "none"},
+    )
+
+    assert len(specs) == 3
+    assert {spec.search_algorithm_id for spec in specs} == {"search-dense-topk10-v1"}
+    assert {spec.store_embedding_model_id for spec in specs} == {"emb-gemini-embedding-001"}
+    assert {
+        (spec.chunking_model_id, spec.semantic_similarity_threshold)
+        for spec in specs
+    } == {
+        ("emb-gemini-embedding-001", 0.75),
+        ("emb-gemini-embedding-001", 0.65),
+        ("emb-text-embedding-3-small", 0.75),
+    }
 
 
 def test_embedding_experiment_uses_coupled_cases() -> None:
@@ -143,7 +187,6 @@ def test_embedding_experiment_uses_coupled_cases() -> None:
         ("emb-pplx-embed-v1-0.6b", "emb-pplx-embed-v1-0.6b"),
         ("emb-pplx-embed-v1-4b", "emb-pplx-embed-v1-4b"),
         ("emb-gemini-embedding-001", "emb-gemini-embedding-001"),
-        ("emb-mistral-embed-2312", "emb-mistral-embed-2312"),
     }
 
 
@@ -176,6 +219,22 @@ def test_prompting_experiment_includes_four_grounded_prompt_variants() -> None:
         "prompt-evidence-first-v1",
         "prompt-strict-abstain-v1",
     }
+
+
+def test_free_openrouter_generation_models_resolve_zero_pricing() -> None:
+    ids = {
+        "gen-nemotron-3-nano-omni-free": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "gen-gemma-4-31b-free": "google/gemma-4-31b-it:free",
+        "gen-nemotron-3-super-free": "nvidia/nemotron-3-super-120b-a12b:free",
+        "gen-minimax-m2.5-free": "minimax/minimax-m2.5:free",
+        "gen-gpt-oss-120b-free": "openai/gpt-oss-120b:free",
+    }
+
+    for model_id, provider_model in ids.items():
+        spec = load_experiment_specs("studies/rag-foundation", overrides={"generation_model_id": model_id})[0]
+        assert spec.generation_model == provider_model
+        assert spec.generation_pricing_input_per_1m_tokens_usd == 0.0
+        assert spec.generation_pricing_output_per_1m_tokens_usd == 0.0
 
 
 def test_load_preprocessing_experiment_exposes_three_runtime_variants() -> None:

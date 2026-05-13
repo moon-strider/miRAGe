@@ -28,7 +28,10 @@ def _semantic_sentence_embedder(spec: ResolvedSpec):
             env=spec.env,
             pricing_input_per_1m_tokens_usd=spec.semantic_embedding_pricing_input_per_1m_tokens_usd,
             cache_dir=layout.embeddings_dir(),
-            cache_namespace=f"semantic/{spec.dataset_id}/{spec.preprocessing_variant_id}/{spec.chunking_model_id}",
+            cache_namespace=(
+                f"semantic/{spec.dataset_id}/{spec.preprocessing_variant_id}/{spec.chunking_model_id}/"
+                f"{spec.semantic_similarity_threshold}/{spec.semantic_min_sentences_per_chunk}"
+            ),
         )
         return vectors
 

@@ -67,6 +67,12 @@ top_k = 20
 mrr_depth = 20
 distance = "cosine"
 
+[search_algorithms.search-dense-topk50-v1]
+kind = "dense"
+top_k = 50
+mrr_depth = 50
+distance = "cosine"
+
 [search_algorithms.search-sparse-bm25-topk10-v1]
 kind = "sparse"
 top_k = 10
