@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import threading
+from time import sleep
 
 import httpx
-from openai import APIStatusError
+from openai import APIStatusError, APITimeoutError
 
 from mirage.chunking import EmbeddingBoundaryChunker, SentenceChunker, TokenChunker
 from mirage.config import ChunkingConfig
-from mirage.llm_chunking import BoundaryDecision, LlmSemanticChunker, OpenRouterBoundaryPlanner
+from mirage.llm_chunking import BoundaryDecision, ChatBoundaryPlanner, LlmSemanticChunker
 from mirage.schemas import Document
 
 
@@ -173,14 +175,14 @@ def test_llm_semantic_chunker_uses_planned_unit_boundaries() -> None:
         return BoundaryDecision(boundary_unit_id="u_0002", reason="topic shift", confidence=0.9)
 
     chunker = LlmSemanticChunker(
-        ChunkingConfig(kind="semantic", chunk_size=128, chunk_overlap=0, chunking_model_id="gen-test"),
+        ChunkingConfig(kind="semantic", chunk_size=12, chunk_overlap=0, chunking_model_id="gen-test"),
         boundary_planner=planner,
         model="provider/test",
     )
 
     chunks = chunker.chunk_document(document)
 
-    assert calls == [["u_0000", "u_0001", "u_0002", "u_0003"]]
+    assert calls == [["u_0000", "u_0001", "u_0002"]]
     assert len(chunks) == 2
     assert chunks[0].text == "Apples need water.\n\nApple trees bloom."
     assert chunks[1].text == "Markets price risk.\n\nBond yields move."
@@ -188,18 +190,41 @@ def test_llm_semantic_chunker_uses_planned_unit_boundaries() -> None:
     assert chunks[0].metadata["unit_ids"] == ["u_0000", "u_0001"]
 
 
+def test_llm_semantic_chunker_skips_planner_when_document_fits_chunk() -> None:
+    document = Document(
+        doc_id="doc-fits",
+        title="Fits",
+        source="seed://synthetic",
+        text="Apples need water.\n\nApple trees bloom.",
+    )
+
+    def planner(units, max_tokens):
+        raise AssertionError("planner should not be called")
+
+    chunker = LlmSemanticChunker(
+        ChunkingConfig(kind="semantic", chunk_size=128, chunk_overlap=0, chunking_model_id="gen-test"),
+        boundary_planner=planner,
+        model="provider/test",
+    )
+
+    chunks = chunker.chunk_document(document)
+
+    assert len(chunks) == 1
+    assert chunks[0].metadata["unit_ids"] == ["u_0000", "u_0001"]
+
+
 def test_llm_semantic_chunker_batches_document_plans(tmp_path) -> None:
     documents = [
-        Document(doc_id="doc-a", title="A", source="seed://a", text="Apples need water.\n\nApple trees bloom."),
-        Document(doc_id="doc-b", title="B", source="seed://b", text="Markets price risk.\n\nBond yields move."),
+        Document(doc_id="doc-a", title="A", source="seed://a", text=("Apple topic sentence. " * 80) + "Tail."),
+        Document(doc_id="doc-b", title="B", source="seed://b", text=("Market topic sentence. " * 80) + "Tail."),
     ]
     batch_calls = []
 
     def batch_planner(requests):
         batch_calls.append([request_id for request_id, _, _ in requests])
         return {
-            request_id: BoundaryDecision(boundary_unit_id=None, reason="same topic", confidence=1.0)
-            for request_id, _, _ in requests
+            request_id: BoundaryDecision(boundary_unit_id=units[1].unit_id, reason="topic shift", confidence=1.0)
+            for request_id, units, _ in requests
         }
 
     chunker = LlmSemanticChunker(
@@ -213,8 +238,8 @@ def test_llm_semantic_chunker_batches_document_plans(tmp_path) -> None:
 
     chunks = chunker.chunk_documents(documents)
 
-    assert batch_calls == [["r_0000", "r_0001"]]
-    assert [chunk.doc_id for chunk in chunks] == ["doc-a", "doc-b"]
+    assert batch_calls[0] == ["r_0000", "r_0001"]
+    assert {chunk.doc_id for chunk in chunks} == {"doc-a", "doc-b"}
     assert len(list(tmp_path.glob("**/*.json"))) == 2
 
 
@@ -223,7 +248,7 @@ def test_llm_semantic_chunker_batch_state_finishes_remainder_once(tmp_path) -> N
         doc_id="doc-long",
         title="Long",
         source="seed://long",
-        text="Alpha first sentence.\n\nBeta second sentence.\n\nGamma third sentence.",
+        text="Alpha first sentence. Beta second sentence. Gamma third sentence.",
     )
 
     def batch_planner(requests):
@@ -233,7 +258,7 @@ def test_llm_semantic_chunker_batch_state_finishes_remainder_once(tmp_path) -> N
         }
 
     chunker = LlmSemanticChunker(
-        ChunkingConfig(kind="semantic", chunk_size=128, chunk_overlap=0, chunking_model_id="gen-test"),
+        ChunkingConfig(kind="semantic", chunk_size=8, chunk_overlap=0, chunking_model_id="gen-test"),
         boundary_planner=lambda units, max_tokens: BoundaryDecision(boundary_unit_id=None, reason="unused", confidence=1.0),
         batch_boundary_planner=batch_planner,
         batch_size=4,
@@ -244,6 +269,38 @@ def test_llm_semantic_chunker_batch_state_finishes_remainder_once(tmp_path) -> N
     chunks = chunker.chunk_documents([document])
 
     assert [chunk.metadata["unit_ids"] for chunk in chunks] == [["u_0000"], ["u_0001", "u_0002"]]
+
+
+def test_llm_semantic_chunker_runs_documents_concurrently(tmp_path) -> None:
+    documents = [
+        Document(doc_id=f"doc-{index}", title="T", source="seed://t", text=("Topic sentence. " * 20) + "Tail.")
+        for index in range(4)
+    ]
+    lock = threading.Lock()
+    active = 0
+    max_active = 0
+
+    def planner(units, max_tokens):
+        nonlocal active, max_active
+        with lock:
+            active += 1
+            max_active = max(max_active, active)
+        sleep(0.05)
+        with lock:
+            active -= 1
+        return BoundaryDecision(boundary_unit_id=units[1].unit_id, reason="topic shift", confidence=1.0)
+
+    chunker = LlmSemanticChunker(
+        ChunkingConfig(kind="semantic", chunk_size=8, chunk_overlap=0, chunking_model_id="gen-test", llm_chunking_concurrency=4),
+        boundary_planner=planner,
+        cache_dir=tmp_path,
+        model="provider/test",
+    )
+
+    chunks = chunker.chunk_documents(documents)
+
+    assert max_active > 1
+    assert {chunk.doc_id for chunk in chunks} == {document.doc_id for document in documents}
 
 
 def test_llm_semantic_chunker_reuses_cached_plan(tmp_path) -> None:
@@ -261,7 +318,7 @@ def test_llm_semantic_chunker_reuses_cached_plan(tmp_path) -> None:
         return BoundaryDecision(boundary_unit_id="u_0001", reason="topic shift", confidence=0.8)
 
     chunker = LlmSemanticChunker(
-        ChunkingConfig(kind="semantic", chunk_size=128, chunk_overlap=0, chunking_model_id="gen-test"),
+        ChunkingConfig(kind="semantic", chunk_size=8, chunk_overlap=0, chunking_model_id="gen-test"),
         boundary_planner=planner,
         cache_dir=tmp_path,
         model="provider/test",
@@ -272,6 +329,39 @@ def test_llm_semantic_chunker_reuses_cached_plan(tmp_path) -> None:
 
     assert calls == 1
     assert [chunk.text for chunk in first] == [chunk.text for chunk in second]
+
+
+def test_llm_semantic_chunker_discards_invalid_cached_plan(tmp_path) -> None:
+    document = Document(
+        doc_id="doc-invalid-cache",
+        title="LLM invalid cache",
+        source="seed://synthetic",
+        text="First topic.\n\nSecond topic.\n\nThird topic.",
+    )
+    calls = 0
+
+    def planner(units, max_tokens):
+        nonlocal calls
+        calls += 1
+        return BoundaryDecision(boundary_unit_id="u_0001", reason="topic shift", confidence=0.8)
+
+    chunker = LlmSemanticChunker(
+        ChunkingConfig(kind="semantic", chunk_size=8, chunk_overlap=0, chunking_model_id="gen-test"),
+        boundary_planner=planner,
+        cache_dir=tmp_path,
+        model="provider/test",
+    )
+    path = chunker._cache_path(document)
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        '{"document_hash":"bad","model":"provider/test","prompt_version":"llm-semantic-boundary-v1",'
+        '"schema_version":"llm-chunk-plan-v1","chunks":[["u_0000"]],"decisions":[]}'
+    )
+
+    chunks = chunker.chunk_document(document)
+
+    assert calls == 1
+    assert [chunk.metadata["unit_ids"] for chunk in chunks] == [["u_0000"], ["u_0001", "u_0002"]]
 
 
 def test_llm_semantic_chunking_preflight_counts_full_documents(tmp_path) -> None:
@@ -292,10 +382,10 @@ def test_llm_semantic_chunking_preflight_counts_full_documents(tmp_path) -> None
     assert preflight.units == 5
     assert preflight.cached_plans == 0
     assert preflight.missing_plans == 2
-    assert preflight.estimated_llm_calls == 2
+    assert preflight.estimated_llm_calls == 0
 
 
-def test_openrouter_boundary_planner_retries_transient_statuses_with_constant_backoff() -> None:
+def test_chat_boundary_planner_retries_transient_statuses_with_constant_backoff() -> None:
     calls = 0
     sleeps = []
 
@@ -303,9 +393,11 @@ def test_openrouter_boundary_planner_retries_transient_statuses_with_constant_ba
         def create(self, **kwargs):
             nonlocal calls
             calls += 1
-            if calls <= 2:
+            if calls <= 3:
+                if calls == 3:
+                    raise APITimeoutError(request=httpx.Request("POST", "https://example.test/v1/chat/completions"))
                 status = 429 if calls == 1 else 503
-                request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+                request = httpx.Request("POST", "https://example.test/v1/chat/completions")
                 response = httpx.Response(status, request=request)
                 raise APIStatusError("transient", response=response, body=None)
             return SimpleNamespace(
@@ -318,7 +410,7 @@ def test_openrouter_boundary_planner_retries_transient_statuses_with_constant_ba
                 ]
             )
 
-    planner = OpenRouterBoundaryPlanner.__new__(OpenRouterBoundaryPlanner)
+    planner = ChatBoundaryPlanner.__new__(ChatBoundaryPlanner)
     planner._client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
     planner._model = "test/model"
     planner._temperature = 0.0
@@ -327,6 +419,48 @@ def test_openrouter_boundary_planner_retries_transient_statuses_with_constant_ba
 
     result = planner._create_completion([])
 
-    assert calls == 3
-    assert sleeps == [1.0, 1.0]
+    assert calls == 4
+    assert sleeps == [1.0, 1.0, 1.0]
     assert result.choices[0].message.content.startswith("{")
+
+
+def test_chat_boundary_planner_accepts_duplicated_json_response() -> None:
+    units = LlmSemanticChunker(
+        ChunkingConfig(kind="semantic", chunk_size=16, chunk_overlap=0, chunking_model_id="gen-test"),
+        boundary_planner=lambda units, max_tokens: BoundaryDecision(boundary_unit_id=None, reason="unused", confidence=1.0),
+    ).unitize_document(Document(doc_id="doc-json", title="JSON", source="seed://json", text="One. Two."))
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            content = (
+                '{"boundary_unit_id": null, "reason": "same topic", "confidence": 1.0}'
+                '{"boundary_unit_id": null, "reason": "duplicate", "confidence": 1.0}'
+            )
+            return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+
+    planner = ChatBoundaryPlanner.__new__(ChatBoundaryPlanner)
+    planner._client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+    planner._model = "test/model"
+    planner._max_retries = 0
+    planner._temperature = 0.0
+    planner._rate_limit_backoff_seconds = 1.0
+    planner._sleep = lambda seconds: None
+
+    decision = planner.decide_boundary(units=units, max_chunk_tokens=16)
+
+    assert decision.boundary_unit_id is None
+
+
+def test_chat_boundary_planner_uses_ollama_cloud_settings() -> None:
+    env = SimpleNamespace(
+        openrouter_api_key=None,
+        openrouter_base_url="https://openrouter.ai/api/v1",
+        ollama_api_key="ollama-key",
+        ollama_base_url="https://ollama.com",
+    )
+
+    planner = ChatBoundaryPlanner(provider="ollama", model="nemotron-3-nano:30b", env=env, max_retries=2)
+
+    assert planner._model == "nemotron-3-nano:30b"
+    assert planner._client.chat.completions._api_key == "ollama-key"
+    assert planner._client.chat.completions._base_url == "https://ollama.com"

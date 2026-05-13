@@ -51,6 +51,7 @@ chunk_overlap = 0
 llm_chunking_max_retries = 2
 llm_chunking_rate_limit_backoff_seconds = 1.0
 llm_chunking_batch_size = 1
+llm_chunking_concurrency = 1
 
 [search_algorithms.search-dense-topk3-v1]
 kind = "dense"

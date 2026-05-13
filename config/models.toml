@@ -52,6 +52,24 @@ model = "openai/gpt-oss-120b:free"
 pricing_input_per_1m_tokens_usd = 0.0
 pricing_output_per_1m_tokens_usd = 0.0
 
+[generation_models."gen-ollama-laguna-xs.2"]
+provider = "ollama"
+model = "laguna-xs.2"
+pricing_input_per_1m_tokens_usd = 0.0
+pricing_output_per_1m_tokens_usd = 0.0
+
+[generation_models."gen-ollama-nemotron3"]
+provider = "ollama"
+model = "nemotron-3-nano:30b"
+pricing_input_per_1m_tokens_usd = 0.0
+pricing_output_per_1m_tokens_usd = 0.0
+
+[generation_models."gen-ollama-lfm2"]
+provider = "ollama"
+model = "lfm2"
+pricing_input_per_1m_tokens_usd = 0.0
+pricing_output_per_1m_tokens_usd = 0.0
+
 [embedding_models."emb-bge-small-en-v1.5"]
 provider = "fastembed"
 model = "BAAI/bge-small-en-v1.5"

@@ -68,8 +68,8 @@ def test_wave1_experiment_directories_resolve_expected_axes() -> None:
     assert rerank.search_algorithm_id == "search-dense-topk10-v1"
     assert rerank.reranker_id == "rerank-jina-tiny-v1"
     assert semantic.chunking_kind == "semantic"
-    assert semantic.chunking_model_id == "gen-nemotron-3-nano-omni-free"
-    assert semantic.semantic_chunking_provider == "openrouter"
+    assert semantic.chunking_model_id == "gen-ollama-nemotron3"
+    assert semantic.semantic_chunking_provider == "ollama"
     assert embedding_boundary.chunking_kind == "embedding-boundary"
     assert embedding_boundary.chunking_model_id == "emb-text-embedding-3-small"
     assert embedding_boundary.semantic_similarity_threshold == 0.85
@@ -126,15 +126,29 @@ def test_semantic_chunking_experiment_resolves_single_llm_planning_preset() -> N
     assert len(specs) == 1
     spec = specs[0]
     assert spec.chunking_kind == "semantic"
-    assert spec.chunking_model_id == "gen-nemotron-3-nano-omni-free"
-    assert spec.semantic_chunking_provider == "openrouter"
-    assert spec.semantic_chunking_model == "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    assert spec.chunking_model_id == "gen-ollama-nemotron3"
+    assert spec.semantic_chunking_provider == "ollama"
+    assert spec.semantic_chunking_model == "nemotron-3-nano:30b"
+    assert spec.llm_chunking_concurrency == 16
     assert spec.semantic_embedding_provider == "none"
     assert "prompt-llm-semantic-boundary-v1" in spec.load_variant_id
     assert "schema-llm-chunk-plan-v1" in spec.load_variant_id
     assert "max-1024" in spec.load_variant_id
     assert spec.chunk_size == 1024
     assert spec.tool_policy_id == "none"
+
+
+def test_semantic_chunking_concurrency_override_resolves() -> None:
+    specs = load_experiment_specs(
+        "studies/rag-foundation",
+        overrides={
+            "study_experiment_id": "semantic-chunking",
+            "generation_model_id": "gen-llama-3.1-8b",
+            "llm_chunking_concurrency": 8,
+        },
+    )
+
+    assert specs[0].llm_chunking_concurrency == 8
 
 
 def test_embedding_boundary_threshold_changes_load_artifact_key() -> None:
@@ -239,6 +253,22 @@ def test_free_openrouter_generation_models_resolve_zero_pricing() -> None:
 
     for model_id, provider_model in ids.items():
         spec = load_experiment_specs("studies/rag-foundation", overrides={"generation_model_id": model_id})[0]
+        assert spec.generation_provider == "openrouter"
+        assert spec.generation_model == provider_model
+        assert spec.generation_pricing_input_per_1m_tokens_usd == 0.0
+        assert spec.generation_pricing_output_per_1m_tokens_usd == 0.0
+
+
+def test_ollama_cloud_generation_models_resolve_zero_pricing() -> None:
+    ids = {
+        "gen-ollama-laguna-xs.2": "laguna-xs.2",
+        "gen-ollama-nemotron3": "nemotron-3-nano:30b",
+        "gen-ollama-lfm2": "lfm2",
+    }
+
+    for model_id, provider_model in ids.items():
+        spec = load_experiment_specs("studies/rag-foundation", overrides={"generation_model_id": model_id})[0]
+        assert spec.generation_provider == "ollama"
         assert spec.generation_model == provider_model
         assert spec.generation_pricing_input_per_1m_tokens_usd == 0.0
         assert spec.generation_pricing_output_per_1m_tokens_usd == 0.0

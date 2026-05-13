@@ -13,7 +13,7 @@ from mirage.config import ChunkingConfig, ResolvedSpec
 from mirage.embeddings import embed_texts
 from mirage.faiss_store import build_faiss_index, save_faiss_index
 from mirage.io_utils import read_json, read_jsonl, write_json, write_jsonl
-from mirage.llm_chunking import LlmChunkingPreflight, LlmSemanticChunker, OpenRouterBoundaryPlanner
+from mirage.llm_chunking import ChatBoundaryPlanner, LlmChunkingPreflight, LlmSemanticChunker
 from mirage.pipeline import _semantic_sentence_embedder
 from mirage.preprocessing import apply_preprocessing
 from mirage.schemas import Chunk, Document
@@ -53,11 +53,12 @@ def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | Embed
         llm_chunking_max_retries=spec.llm_chunking_max_retries,
         llm_chunking_rate_limit_backoff_seconds=spec.llm_chunking_rate_limit_backoff_seconds,
         llm_chunking_batch_size=spec.llm_chunking_batch_size,
+        llm_chunking_concurrency=spec.llm_chunking_concurrency,
     )
     if spec.chunking_kind == "embedding-boundary":
         return EmbeddingBoundaryChunker(config, embedder=_semantic_sentence_embedder(spec))
     if spec.chunking_kind == "semantic":
-        planner = OpenRouterBoundaryPlanner(
+        planner = ChatBoundaryPlanner(
             provider=spec.semantic_chunking_provider,
             model=spec.semantic_chunking_model,
             env=spec.env,
@@ -183,6 +184,7 @@ def preflight_llm_chunking(spec: ResolvedSpec, documents: list[Document]) -> Llm
         llm_chunking_max_retries=spec.llm_chunking_max_retries,
         llm_chunking_rate_limit_backoff_seconds=spec.llm_chunking_rate_limit_backoff_seconds,
         llm_chunking_batch_size=spec.llm_chunking_batch_size,
+        llm_chunking_concurrency=spec.llm_chunking_concurrency,
     )
     chunker = LlmSemanticChunker(
         config,

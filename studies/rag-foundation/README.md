@@ -65,7 +65,7 @@ All completed rows use full SciFact, Gemini embeddings, Qdrant HNSW cosine, dens
 - Token 1024/128 remains the preferred baseline: it ties the best Recall@k and NDCG@k while keeping the lowest latency among tied variants.
 - Token 512/64 slightly improves Precision@k, but loses Recall@k/NDCG@k and is slower, so it is not a better general baseline.
 - Token 2048/256 and sentence 1024/128 match quality but add latency, so they do not justify replacing the simpler token 1024/128 baseline.
-- Semantic chunking produced no valid metrics in this wave after a long embedding-only run, so it is excluded from the decision path for now.
+- The old embedding-threshold splitter is no longer treated as true semantic chunking; true LLM semantic chunking is reported separately below.
 
 ## Wave 4 LLM-free macro search results
 
@@ -84,3 +84,19 @@ All rows use full SciFact, Gemini embeddings, token 1024/128 chunks, Qdrant HNSW
 - Dense MMR is worse on every quality metric and much slower, so it should not be used in the main path.
 - Hybrid RRF improves Recall@k over top-k5 but loses badly on MRR@k/NDCG@k and is slower than dense top-k10, so lexical fusion is not useful for the SciFact main baseline.
 - Current retrieval baseline: Gemini embeddings, token 1024/128 chunks, Qdrant HNSW cosine, dense top-k10, no reranker/tool policy/LLM generation.
+
+## Wave 5 LLM semantic chunking results
+
+This row uses full SciFact, Ollama Cloud Nemotron chunk-plan generation, Gemini embeddings, Qdrant HNSW cosine, dense top-k5, no reranker, no tool policy, and no answer generation. The chunk planner produced 5,183 cached plans and 5,510 materialized chunks.
+
+| chunking | planner | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | p50 ms | p95 ms | projected 1m query cost |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| LLM semantic 1024 | nemotron-3-nano-30b | 0.9500 | 0.2248 | 0.9459 | 0.8726 | 0.8887 | 1165.05 | 2195.99 | 3.52 |
+
+## Wave 5 interpretation
+
+- LLM semantic chunking slightly improves MRR@k over dense top-k5 token chunking, but does not beat the current dense top-k10 baseline.
+- Compared with the current baseline, NDCG@k is lower: 0.8887 vs 0.8956, and Recall@k is lower: 0.9459 vs 0.9750.
+- Latency is worse than token top-k5 and top-k10, so this is not the SciFact default.
+- SciFact is mostly short documents: 5,173 of 5,183 documents fit within the 1024-token chunk limit, so this dataset is not a strong test for semantic chunking.
+- Next semantic chunking check should be Qasper, where longer paper-like documents make semantic boundaries more likely to matter.

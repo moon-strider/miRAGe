@@ -71,9 +71,10 @@ reranker_id = ["rerank-bge-base-v1", "rerank-jina-v2-base-multilingual", "rerank
 [[experiments]]
 id = "semantic-chunking"
 chunking_variant_id = "chunk-semantic-v1"
-chunking_model_id = "gen-nemotron-3-nano-omni-free"
+chunking_model_id = "gen-ollama-nemotron3"
 store_embedding_model_id = "emb-gemini-embedding-001"
 query_embedding_model_id = "emb-gemini-embedding-001"
+llm_chunking_concurrency = 16
 
 [[experiments]]
 id = "embedding-boundary-chunking"

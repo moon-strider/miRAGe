@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import math
 from pathlib import Path
 import re
+from types import SimpleNamespace
 from time import sleep
+import uuid
 
 import httpx
-from openai import APIStatusError, OpenAI
+from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 from pydantic import BaseModel, Field, ValidationError, field_validator
 import tiktoken
 
@@ -76,7 +79,39 @@ class LlmChunkingPreflight(BaseModel):
     model: str
 
 
-class OpenRouterBoundaryPlanner:
+class _OllamaChatCompletions:
+    def __init__(self, *, api_key: str, base_url: str, timeout: httpx.Timeout) -> None:
+        self._api_key = api_key
+        self._base_url = base_url.rstrip("/")
+        self._timeout = timeout
+
+    def create(self, **kwargs) -> object:
+        payload = {
+            "model": kwargs["model"],
+            "messages": kwargs["messages"],
+            "stream": False,
+            "format": "json",
+            "think": False,
+            "options": {"temperature": kwargs.get("temperature", 0.0), "num_predict": 128},
+        }
+        headers = {"Authorization": f"Bearer {self._api_key}"}
+        with httpx.Client(timeout=self._timeout, follow_redirects=True) as client:
+            response = client.post(f"{self._base_url}/api/chat", headers=headers, json=payload)
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as error:
+            raise APIStatusError(str(error), response=response, body=response.text) from error
+        data = response.json()
+        content = data.get("message", {}).get("content", "")
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+
+
+class _OllamaChatClient:
+    def __init__(self, *, api_key: str, base_url: str, timeout: httpx.Timeout) -> None:
+        self.chat = SimpleNamespace(completions=_OllamaChatCompletions(api_key=api_key, base_url=base_url, timeout=timeout))
+
+
+class ChatBoundaryPlanner:
     def __init__(
         self,
         *,
@@ -88,17 +123,23 @@ class OpenRouterBoundaryPlanner:
         rate_limit_backoff_seconds: float = 1.0,
         sleep_fn: Callable[[float], None] = sleep,
     ) -> None:
-        if provider != "openrouter":
+        timeout = httpx.Timeout(300.0, connect=10.0)
+        if provider == "openrouter":
+            if not env.openrouter_api_key:
+                raise RuntimeError("OPENROUTER_API_KEY is required for OpenRouter LLM semantic chunking")
+            http_client = httpx.Client(follow_redirects=True, timeout=timeout)
+            self._client = OpenAI(
+                api_key=env.openrouter_api_key,
+                base_url=env.openrouter_base_url,
+                http_client=http_client,
+                max_retries=0,
+            )
+        elif provider == "ollama":
+            if not env.ollama_api_key:
+                raise RuntimeError("OLLAMA_API_KEY is required for Ollama Cloud LLM semantic chunking")
+            self._client = _OllamaChatClient(api_key=env.ollama_api_key, base_url=env.ollama_base_url, timeout=timeout)
+        else:
             raise NotImplementedError(f"Unsupported LLM chunking provider: {provider}")
-        if not env.openrouter_api_key:
-            raise RuntimeError("OPENROUTER_API_KEY is required for LLM semantic chunking")
-        http_client = httpx.Client(follow_redirects=True, timeout=httpx.Timeout(120.0, connect=10.0))
-        self._client = OpenAI(
-            api_key=env.openrouter_api_key,
-            base_url=env.openrouter_base_url,
-            http_client=http_client,
-            max_retries=0,
-        )
         self._model = model
         self._max_retries = max_retries
         self._temperature = temperature
@@ -125,7 +166,7 @@ class OpenRouterBoundaryPlanner:
             response = self._create_completion(messages)
             raw = response.choices[0].message.content or ""
             try:
-                decision = BoundaryDecision.model_validate(json.loads(raw))
+                decision = BoundaryDecision.model_validate(_parse_llm_json(raw))
                 self._validate_decision(decision, units, max_chunk_tokens)
                 return decision
             except (json.JSONDecodeError, ValidationError, ValueError) as error:
@@ -156,7 +197,7 @@ class OpenRouterBoundaryPlanner:
             response = self._create_completion(messages)
             raw = response.choices[0].message.content or ""
             try:
-                parsed = BatchBoundaryResponse.model_validate(json.loads(raw))
+                parsed = BatchBoundaryResponse.model_validate(_parse_llm_json(raw))
                 decisions = {decision.request_id: BoundaryDecision.model_validate(decision.model_dump()) for decision in parsed.decisions}
                 expected_ids = {request_id for request_id, _, _ in requests}
                 if set(decisions) != expected_ids:
@@ -183,6 +224,9 @@ class OpenRouterBoundaryPlanner:
                     self._sleep(self._rate_limit_backoff_seconds)
                     continue
                 raise
+            except (APIConnectionError, APITimeoutError, httpx.TimeoutException):
+                self._sleep(self._rate_limit_backoff_seconds)
+                continue
 
     def _prompt(self, units: list[SourceUnit], max_chunk_tokens: int, error: str | None) -> str:
         payload = {
@@ -245,6 +289,7 @@ class LlmSemanticChunker:
         self._planner = boundary_planner
         self._batch_planner = batch_boundary_planner
         self._batch_size = batch_size
+        self._concurrency = max(1, config.llm_chunking_concurrency)
         self._cache_dir = cache_dir
         self._model = model
         self._prompt_version = prompt_version
@@ -289,14 +334,22 @@ class LlmSemanticChunker:
             if self._cache_path(document).exists():
                 cached += 1
         missing = len(docs) - cached
+        deterministic = 0
+        for document in docs:
+            if self._cache_path(document).exists():
+                continue
+            doc_units = self.unitize_document(document)
+            if sum(unit.token_count for unit in doc_units) <= self._config.chunk_size:
+                deterministic += 1
+        llm_calls = missing - deterministic
         return LlmChunkingPreflight(
             documents=len(docs),
             units=units,
             tokens=tokens,
             cached_plans=cached,
             missing_plans=missing,
-            estimated_llm_calls=missing,
-            estimated_llm_batch_calls=math.ceil(missing / self._batch_size) if self._batch_planner is not None else missing,
+            estimated_llm_calls=llm_calls,
+            estimated_llm_batch_calls=math.ceil(llm_calls / self._batch_size) if self._batch_planner is not None else llm_calls,
             model=self._model,
         )
 
@@ -315,6 +368,11 @@ class LlmSemanticChunker:
         if self._batch_planner is not None:
             return self._chunk_documents_batched(docs)
         output: list[Chunk] = []
+        if self._concurrency > 1:
+            with ThreadPoolExecutor(max_workers=self._concurrency) as executor:
+                for chunks in executor.map(self.chunk_document, docs):
+                    output.extend(chunks)
+            return output
         for document in docs:
             output.extend(self.chunk_document(document))
         return output
@@ -328,6 +386,11 @@ class LlmSemanticChunker:
                 continue
             plan = self._load_plan(document, units)
             if plan is not None:
+                outputs[index] = self._materialize(document, units, plan)
+                continue
+            if sum(unit.token_count for unit in units) <= self._config.chunk_size:
+                plan = self._single_chunk_plan(document, units)
+                self._write_plan(document, plan)
                 outputs[index] = self._materialize(document, units, plan)
                 continue
             states.append({"index": index, "document": document, "units": units, "chunks": [], "decisions": [], "start": 0})
@@ -422,6 +485,10 @@ class LlmSemanticChunker:
         decisions: list[BoundaryDecision] = []
         start = 0
         while start < len(units):
+            remaining = units[start:]
+            if sum(unit.token_count for unit in remaining) <= self._config.chunk_size:
+                chunks.append([unit.unit_id for unit in remaining])
+                break
             window = self._window(units, start)
             if start > 0 and start + len(window) >= len(units) and sum(unit.token_count for unit in window) <= self._config.chunk_size:
                 chunks.append([unit.unit_id for unit in window])
@@ -447,6 +514,16 @@ class LlmSemanticChunker:
         )
         validate_chunk_plan(plan, units)
         return plan
+
+    def _single_chunk_plan(self, document: Document, units: list[SourceUnit]) -> LlmChunkPlan:
+        return LlmChunkPlan(
+            document_hash=_document_hash(document),
+            model=self._model,
+            prompt_version=self._prompt_version,
+            schema_version=self._schema_version,
+            chunks=[[unit.unit_id for unit in units]],
+            decisions=[],
+        )
 
     def _window(self, units: list[SourceUnit], start: int) -> list[SourceUnit]:
         output: list[SourceUnit] = []
@@ -494,8 +571,12 @@ class LlmSemanticChunker:
         path = self._cache_path(document)
         if not path.exists():
             return None
-        plan = LlmChunkPlan.model_validate(json.loads(path.read_text()))
-        validate_chunk_plan(plan, units)
+        try:
+            plan = LlmChunkPlan.model_validate(json.loads(path.read_text()))
+            validate_chunk_plan(plan, units)
+        except (json.JSONDecodeError, ValidationError, ValueError):
+            path.unlink(missing_ok=True)
+            return None
         return plan
 
     def _write_plan(self, document: Document, plan: LlmChunkPlan) -> None:
@@ -503,7 +584,9 @@ class LlmSemanticChunker:
             return
         path = self._cache_path(document)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(plan.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n")
+        tmp_path = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
+        tmp_path.write_text(json.dumps(plan.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n")
+        tmp_path.replace(path)
 
 
 def validate_boundary_decision(decision: BoundaryDecision, units: list[SourceUnit], max_chunk_tokens: int) -> None:
@@ -524,6 +607,19 @@ def validate_chunk_plan(plan: LlmChunkPlan, units: list[SourceUnit]) -> None:
 
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
+
+
+def _parse_llm_json(raw: str) -> object:
+    stripped = raw.strip()
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError as error:
+        decoder = json.JSONDecoder()
+        value, end = decoder.raw_decode(stripped)
+        trailing = stripped[end:].strip()
+        if trailing.startswith("{") or trailing.startswith("["):
+            return value
+        raise error
 
 
 def _split_paragraphs(text: str) -> list[str]:
