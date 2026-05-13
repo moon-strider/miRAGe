@@ -67,7 +67,7 @@ def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | Embed
         return LlmSemanticChunker(
             config,
             boundary_planner=lambda units, max_tokens: planner.decide_boundary(units=units, max_chunk_tokens=max_tokens),
-            batch_boundary_planner=planner.decide_boundaries,
+            batch_boundary_planner=planner.decide_boundaries if spec.llm_chunking_batch_size > 1 else None,
             batch_size=spec.llm_chunking_batch_size,
             cache_dir=ArtifactLayout(spec).chunk_plans_dir(),
             model=spec.semantic_chunking_model,
