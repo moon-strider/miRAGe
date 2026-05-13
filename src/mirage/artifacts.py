@@ -39,6 +39,16 @@ class ArtifactLayout:
     def embeddings_dir(self) -> Path:
         return self.root / "embeddings"
 
+    def chunk_plans_dir(self) -> Path:
+        return (
+            self.root
+            / "chunk-plans"
+            / self.spec.dataset_id
+            / self.spec.preprocessing_variant_id
+            / self.spec.chunking_variant_id
+            / self.spec.chunking_model_id
+        )
+
     def retrieval_dir(self) -> Path:
         return (
             self.root

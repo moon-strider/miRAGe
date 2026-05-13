@@ -46,8 +46,12 @@ def test_wave1_experiment_directories_resolve_expected_axes() -> None:
     )[0]
     semantic = load_experiment_specs(
         "studies/rag-foundation",
+        overrides={"study_experiment_id": "semantic-chunking", "generation_model_id": "gen-llama-3.1-8b"},
+    )[0]
+    embedding_boundary = load_experiment_specs(
+        "studies/rag-foundation",
         overrides={
-            "study_experiment_id": "semantic-chunking",
+            "study_experiment_id": "embedding-boundary-chunking",
             "generation_model_id": "gen-llama-3.1-8b",
             "chunking_model_id": "emb-text-embedding-3-small",
             "semantic_similarity_threshold": 0.85,
@@ -64,9 +68,12 @@ def test_wave1_experiment_directories_resolve_expected_axes() -> None:
     assert rerank.search_algorithm_id == "search-dense-topk10-v1"
     assert rerank.reranker_id == "rerank-jina-tiny-v1"
     assert semantic.chunking_kind == "semantic"
-    assert semantic.chunking_model_id == "emb-text-embedding-3-small"
-    assert semantic.semantic_similarity_threshold == 0.85
-    assert semantic.semantic_min_sentences_per_chunk == 2
+    assert semantic.chunking_model_id == "gen-gemma-4-31b-free"
+    assert semantic.semantic_chunking_provider == "openrouter"
+    assert embedding_boundary.chunking_kind == "embedding-boundary"
+    assert embedding_boundary.chunking_model_id == "emb-text-embedding-3-small"
+    assert embedding_boundary.semantic_similarity_threshold == 0.85
+    assert embedding_boundary.semantic_min_sentences_per_chunk == 2
     assert tools.tool_policy_id == "tool-context-expansion-v1"
 
 
@@ -110,7 +117,7 @@ def test_deterministic_chunking_experiment_resolves_llm_free_macro_variants() ->
     assert {spec.tool_policy_id for spec in specs} == {"none"}
 
 
-def test_semantic_chunking_experiment_resolves_single_llm_free_preset() -> None:
+def test_semantic_chunking_experiment_resolves_single_llm_planning_preset() -> None:
     specs = load_experiment_specs(
         "studies/rag-foundation",
         overrides={"study_experiment_id": "semantic-chunking", "generation_model_id": "gen-llama-3.1-8b"},
@@ -119,23 +126,22 @@ def test_semantic_chunking_experiment_resolves_single_llm_free_preset() -> None:
     assert len(specs) == 1
     spec = specs[0]
     assert spec.chunking_kind == "semantic"
-    assert spec.chunking_model_id == "emb-gemini-embedding-001"
-    assert spec.store_embedding_model_id == "emb-gemini-embedding-001"
-    assert spec.query_embedding_model_id == "emb-gemini-embedding-001"
-    assert spec.semantic_embedding_provider == "openrouter"
-    assert spec.semantic_similarity_threshold == 0.75
-    assert spec.semantic_min_sentences_per_chunk == 2
-    assert "th-0p75" in spec.load_variant_id
-    assert "min-2" in spec.load_variant_id
+    assert spec.chunking_model_id == "gen-gemma-4-31b-free"
+    assert spec.semantic_chunking_provider == "openrouter"
+    assert spec.semantic_chunking_model == "google/gemma-4-31b-it:free"
+    assert spec.semantic_embedding_provider == "none"
+    assert "prompt-llm-semantic-boundary-v1" in spec.load_variant_id
+    assert "schema-llm-chunk-plan-v1" in spec.load_variant_id
+    assert "max-1024" in spec.load_variant_id
     assert spec.chunk_size == 1024
     assert spec.tool_policy_id == "none"
 
 
-def test_semantic_chunking_threshold_changes_load_artifact_key() -> None:
+def test_embedding_boundary_threshold_changes_load_artifact_key() -> None:
     low = load_experiment_specs(
         "studies/rag-foundation",
         overrides={
-            "study_experiment_id": "semantic-chunking",
+            "study_experiment_id": "embedding-boundary-chunking",
             "generation_model_id": "none",
             "semantic_similarity_threshold": 0.65,
         },
@@ -143,7 +149,7 @@ def test_semantic_chunking_threshold_changes_load_artifact_key() -> None:
     high = load_experiment_specs(
         "studies/rag-foundation",
         overrides={
-            "study_experiment_id": "semantic-chunking",
+            "study_experiment_id": "embedding-boundary-chunking",
             "generation_model_id": "none",
             "semantic_similarity_threshold": 0.75,
         },
@@ -154,13 +160,14 @@ def test_semantic_chunking_threshold_changes_load_artifact_key() -> None:
     assert "th-0p75" in high.load_variant_id
 
 
-def test_controlled_semantic_chunking_experiment_resolves_three_cases() -> None:
+def test_controlled_embedding_boundary_experiment_resolves_three_cases() -> None:
     specs = load_experiment_specs(
         "studies/rag-foundation",
-        overrides={"study_experiment_id": "semantic-chunking-controlled", "generation_model_id": "none"},
+        overrides={"study_experiment_id": "embedding-boundary-controlled", "generation_model_id": "none"},
     )
 
     assert len(specs) == 3
+    assert {spec.chunking_kind for spec in specs} == {"embedding-boundary"}
     assert {spec.search_algorithm_id for spec in specs} == {"search-dense-topk10-v1"}
     assert {spec.store_embedding_model_id for spec in specs} == {"emb-gemini-embedding-001"}
     assert {

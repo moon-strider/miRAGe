@@ -71,6 +71,13 @@ reranker_id = ["rerank-bge-base-v1", "rerank-jina-v2-base-multilingual", "rerank
 [[experiments]]
 id = "semantic-chunking"
 chunking_variant_id = "chunk-semantic-v1"
+chunking_model_id = "gen-gemma-4-31b-free"
+store_embedding_model_id = "emb-gemini-embedding-001"
+query_embedding_model_id = "emb-gemini-embedding-001"
+
+[[experiments]]
+id = "embedding-boundary-chunking"
+chunking_variant_id = "chunk-embedding-boundary-v1"
 chunking_model_id = "emb-gemini-embedding-001"
 store_embedding_model_id = "emb-gemini-embedding-001"
 query_embedding_model_id = "emb-gemini-embedding-001"
@@ -78,25 +85,25 @@ semantic_similarity_threshold = 0.75
 semantic_min_sentences_per_chunk = 2
 
 [[experiments]]
-id = "semantic-chunking-controlled"
+id = "embedding-boundary-controlled"
 store_embedding_model_id = "emb-gemini-embedding-001"
 query_embedding_model_id = "emb-gemini-embedding-001"
 search_algorithm_id = "search-dense-topk10-v1"
 
 [[experiments.cases]]
-chunking_variant_id = "chunk-semantic-v1"
+chunking_variant_id = "chunk-embedding-boundary-v1"
 chunking_model_id = "emb-gemini-embedding-001"
 semantic_similarity_threshold = 0.75
 semantic_min_sentences_per_chunk = 2
 
 [[experiments.cases]]
-chunking_variant_id = "chunk-semantic-v1"
+chunking_variant_id = "chunk-embedding-boundary-v1"
 chunking_model_id = "emb-gemini-embedding-001"
 semantic_similarity_threshold = 0.65
 semantic_min_sentences_per_chunk = 2
 
 [[experiments.cases]]
-chunking_variant_id = "chunk-semantic-v1"
+chunking_variant_id = "chunk-embedding-boundary-v1"
 chunking_model_id = "emb-text-embedding-3-small"
 semantic_similarity_threshold = 0.75
 semantic_min_sentences_per_chunk = 2

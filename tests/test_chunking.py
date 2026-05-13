@@ -1,7 +1,8 @@
 from __future__ import annotations
-from __future__ import annotations
-from mirage.chunking import SemanticChunker, SentenceChunker, TokenChunker
+
+from mirage.chunking import EmbeddingBoundaryChunker, SentenceChunker, TokenChunker
 from mirage.config import ChunkingConfig
+from mirage.llm_chunking import BoundaryDecision, LlmSemanticChunker
 from mirage.schemas import Document
 
 
@@ -45,7 +46,7 @@ def test_sentence_chunker_uses_sentence_aware_windows() -> None:
     assert "Nu xi omicron pi." in chunks[-1].text
 
 
-def test_semantic_chunker_groups_neighboring_sentences_by_similarity() -> None:
+def test_embedding_boundary_chunker_groups_neighboring_sentences_by_similarity() -> None:
     document = Document(
         doc_id="doc-003",
         title="Semantic synthetic",
@@ -67,9 +68,9 @@ def test_semantic_chunker_groups_neighboring_sentences_by_similarity() -> None:
         }
         return [mapping[text] for text in texts]
 
-    chunker = SemanticChunker(
+    chunker = EmbeddingBoundaryChunker(
         ChunkingConfig(
-            kind="semantic",
+            kind="embedding-boundary",
             chunk_size=128,
             chunk_overlap=0,
             chunking_model_id="emb-test",
@@ -90,7 +91,7 @@ def test_semantic_chunker_groups_neighboring_sentences_by_similarity() -> None:
     assert "Bond yields react to inflation." in chunks[1].text
 
 
-def test_semantic_chunker_honors_min_sentences_before_split() -> None:
+def test_embedding_boundary_chunker_honors_min_sentences_before_split() -> None:
     document = Document(
         doc_id="doc-004",
         title="Semantic min sentences",
@@ -106,9 +107,9 @@ def test_semantic_chunker_honors_min_sentences_before_split() -> None:
         }
         return [mapping[text] for text in texts]
 
-    chunker = SemanticChunker(
+    chunker = EmbeddingBoundaryChunker(
         ChunkingConfig(
-            kind="semantic",
+            kind="embedding-boundary",
             chunk_size=128,
             chunk_overlap=0,
             chunking_model_id="emb-test",
@@ -125,7 +126,7 @@ def test_semantic_chunker_honors_min_sentences_before_split() -> None:
     assert chunks[1].text == "Gamma three."
 
 
-def test_semantic_chunker_respects_chunk_size_cap() -> None:
+def test_embedding_boundary_chunker_respects_chunk_size_cap() -> None:
     document = Document(
         doc_id="doc-005",
         title="Semantic chunk size",
@@ -136,9 +137,9 @@ def test_semantic_chunker_respects_chunk_size_cap() -> None:
     def embedder(texts: list[str]) -> list[list[float]]:
         return [[1.0, 0.0] for _ in texts]
 
-    chunker = SemanticChunker(
+    chunker = EmbeddingBoundaryChunker(
         ChunkingConfig(
-            kind="semantic",
+            kind="embedding-boundary",
             chunk_size=6,
             chunk_overlap=0,
             chunking_model_id="emb-test",
@@ -151,3 +152,81 @@ def test_semantic_chunker_respects_chunk_size_cap() -> None:
     chunks = chunker.chunk_documents([document])
 
     assert len(chunks) == 3
+
+
+def test_llm_semantic_chunker_uses_planned_unit_boundaries() -> None:
+    document = Document(
+        doc_id="doc-006",
+        title="LLM semantic",
+        source="seed://synthetic",
+        text="Apples need water.\n\nApple trees bloom.\n\nMarkets price risk.\n\nBond yields move.",
+    )
+    calls = []
+
+    def planner(units, max_tokens):
+        calls.append([unit.unit_id for unit in units])
+        return BoundaryDecision(boundary_unit_id="u_0002", reason="topic shift", confidence=0.9)
+
+    chunker = LlmSemanticChunker(
+        ChunkingConfig(kind="semantic", chunk_size=128, chunk_overlap=0, chunking_model_id="gen-test"),
+        boundary_planner=planner,
+        model="provider/test",
+    )
+
+    chunks = chunker.chunk_document(document)
+
+    assert calls == [["u_0000", "u_0001", "u_0002", "u_0003"]]
+    assert len(chunks) == 2
+    assert chunks[0].text == "Apples need water.\n\nApple trees bloom."
+    assert chunks[1].text == "Markets price risk.\n\nBond yields move."
+    assert chunks[0].metadata["chunking_strategy"] == "llm-semantic"
+    assert chunks[0].metadata["unit_ids"] == ["u_0000", "u_0001"]
+
+
+def test_llm_semantic_chunker_reuses_cached_plan(tmp_path) -> None:
+    document = Document(
+        doc_id="doc-007",
+        title="LLM cache",
+        source="seed://synthetic",
+        text="First topic.\n\nSecond topic.\n\nThird topic.",
+    )
+    calls = 0
+
+    def planner(units, max_tokens):
+        nonlocal calls
+        calls += 1
+        return BoundaryDecision(boundary_unit_id="u_0001", reason="topic shift", confidence=0.8)
+
+    chunker = LlmSemanticChunker(
+        ChunkingConfig(kind="semantic", chunk_size=128, chunk_overlap=0, chunking_model_id="gen-test"),
+        boundary_planner=planner,
+        cache_dir=tmp_path,
+        model="provider/test",
+    )
+
+    first = chunker.chunk_document(document)
+    second = chunker.chunk_document(document)
+
+    assert calls == 1
+    assert [chunk.text for chunk in first] == [chunk.text for chunk in second]
+
+
+def test_llm_semantic_chunking_preflight_counts_full_documents(tmp_path) -> None:
+    documents = [
+        Document(doc_id="a", title="A", source="seed://a", text="One.\n\nTwo."),
+        Document(doc_id="b", title="B", source="seed://b", text="Three.\n\nFour.\n\nFive."),
+    ]
+    chunker = LlmSemanticChunker(
+        ChunkingConfig(kind="semantic", chunk_size=128, chunk_overlap=0, chunking_model_id="gen-test"),
+        boundary_planner=lambda units, max_tokens: BoundaryDecision(boundary_unit_id=None, reason="same", confidence=1.0),
+        cache_dir=tmp_path,
+        model="provider/test",
+    )
+
+    preflight = chunker.preflight(documents)
+
+    assert preflight.documents == 2
+    assert preflight.units == 5
+    assert preflight.cached_plans == 0
+    assert preflight.missing_plans == 2
+    assert preflight.estimated_llm_calls == 2

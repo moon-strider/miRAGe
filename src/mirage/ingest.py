@@ -8,11 +8,12 @@ from qdrant_client import QdrantClient, models
 
 from mirage.adapters import load_documents_for_spec
 from mirage.artifacts import ArtifactLayout
-from mirage.chunking import SemanticChunker, SentenceChunker, TokenChunker
+from mirage.chunking import EmbeddingBoundaryChunker, SentenceChunker, TokenChunker
 from mirage.config import ChunkingConfig, ResolvedSpec
 from mirage.embeddings import embed_texts
 from mirage.faiss_store import build_faiss_index, save_faiss_index
 from mirage.io_utils import read_json, read_jsonl, write_json, write_jsonl
+from mirage.llm_chunking import LlmChunkingPreflight, LlmSemanticChunker, OpenRouterBoundaryPlanner
 from mirage.pipeline import _semantic_sentence_embedder
 from mirage.preprocessing import apply_preprocessing
 from mirage.schemas import Chunk, Document
@@ -40,7 +41,7 @@ def _faiss_index_path(spec: ResolvedSpec) -> Path:
     return ArtifactLayout(spec).store_dir() / "index.faiss"
 
 
-def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | SemanticChunker:
+def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | EmbeddingBoundaryChunker | LlmSemanticChunker:
     config = ChunkingConfig(
         kind=spec.chunking_kind,
         tokenizer=spec.chunk_tokenizer,
@@ -49,9 +50,23 @@ def _build_chunker(spec: ResolvedSpec) -> TokenChunker | SentenceChunker | Seman
         chunking_model_id=spec.chunking_model_id,
         semantic_similarity_threshold=spec.semantic_similarity_threshold,
         semantic_min_sentences_per_chunk=spec.semantic_min_sentences_per_chunk,
+        llm_chunking_max_retries=spec.llm_chunking_max_retries,
     )
+    if spec.chunking_kind == "embedding-boundary":
+        return EmbeddingBoundaryChunker(config, embedder=_semantic_sentence_embedder(spec))
     if spec.chunking_kind == "semantic":
-        return SemanticChunker(config, embedder=_semantic_sentence_embedder(spec))
+        planner = OpenRouterBoundaryPlanner(
+            provider=spec.semantic_chunking_provider,
+            model=spec.semantic_chunking_model,
+            env=spec.env,
+            max_retries=spec.llm_chunking_max_retries,
+        )
+        return LlmSemanticChunker(
+            config,
+            boundary_planner=lambda units, max_tokens: planner.decide_boundary(units=units, max_chunk_tokens=max_tokens),
+            cache_dir=ArtifactLayout(spec).chunk_plans_dir(),
+            model=spec.semantic_chunking_model,
+        )
     if spec.chunking_kind == "sentence":
         return SentenceChunker(config)
     return TokenChunker(config)
@@ -149,6 +164,26 @@ def prepare_documents(spec: ResolvedSpec, *, reset: bool = False) -> tuple[list[
         "documents": len(documents),
         "reused_prepared": False,
     }
+
+
+def preflight_llm_chunking(spec: ResolvedSpec, documents: list[Document]) -> LlmChunkingPreflight:
+    if spec.chunking_kind != "semantic":
+        raise ValueError("LLM chunking preflight requires a semantic chunking spec")
+    config = ChunkingConfig(
+        kind=spec.chunking_kind,
+        tokenizer=spec.chunk_tokenizer,
+        chunk_size=spec.chunk_size,
+        chunk_overlap=spec.chunk_overlap,
+        chunking_model_id=spec.chunking_model_id,
+        llm_chunking_max_retries=spec.llm_chunking_max_retries,
+    )
+    chunker = LlmSemanticChunker(
+        config,
+        boundary_planner=lambda units, max_tokens: (_ for _ in ()).throw(RuntimeError("preflight does not call LLM")),
+        cache_dir=ArtifactLayout(spec).chunk_plans_dir(),
+        model=spec.semantic_chunking_model,
+    )
+    return chunker.preflight(documents)
 
 
 def build_chunks(

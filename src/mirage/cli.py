@@ -9,7 +9,7 @@ import typer
 from mirage.datasets import fetch_all_datasets, fetch_dataset
 from mirage.pipeline import answer_question
 from mirage.reporting import synthesize_reports
-from mirage.runner import describe_spec, persist_resolved_specs, resolve_specs, run_eval, run_ingest, run_retrieval_eval, select_single_spec
+from mirage.runner import describe_spec, persist_resolved_specs, resolve_specs, run_chunking_preflight, run_eval, run_ingest, run_retrieval_eval, select_single_spec
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
@@ -31,6 +31,15 @@ def ingest(
     reset: bool = typer.Option(False, "--reset", help="Recreate matching store artifacts before indexing."),
 ) -> None:
     result = run_ingest(experiment, overrides=set_values, reset=reset)
+    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+@app.command()
+def chunking_preflight(
+    experiment: Path = typer.Option(..., "--experiment", exists=True, file_okay=False, dir_okay=True),
+    set_values: Optional[List[str]] = typer.Option(None, "--set"),
+) -> None:
+    result = run_chunking_preflight(experiment, overrides=set_values)
     typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
 
 

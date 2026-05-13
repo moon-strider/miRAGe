@@ -37,11 +37,18 @@ tokenizer = "cl100k_base"
 chunk_size = 1024
 chunk_overlap = 128
 
+[chunking_variants.chunk-embedding-boundary-v1]
+kind = "embedding-boundary"
+tokenizer = "cl100k_base"
+chunk_size = 1024
+chunk_overlap = 0
+
 [chunking_variants.chunk-semantic-v1]
 kind = "semantic"
 tokenizer = "cl100k_base"
 chunk_size = 1024
 chunk_overlap = 0
+llm_chunking_max_retries = 2
 
 [search_algorithms.search-dense-topk3-v1]
 kind = "dense"

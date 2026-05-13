@@ -18,6 +18,7 @@ class ChunkingConfig(BaseModel):
     chunking_model_id: str = "none"
     semantic_similarity_threshold: float = 0.8
     semantic_min_sentences_per_chunk: int = 2
+    llm_chunking_max_retries: int = 2
 
 
 class EnvironmentSettings(BaseSettings):
@@ -70,6 +71,7 @@ class ChunkingVariant(BaseModel):
     tokenizer: str = "cl100k_base"
     chunk_size: int = 500
     chunk_overlap: int = 50
+    llm_chunking_max_retries: int = 2
 
 
 class EmbeddingModelEntry(BaseModel):
@@ -163,6 +165,11 @@ class ResolvedSpec(BaseModel):
     semantic_embedding_model: str = "none"
     semantic_embedding_batch_size: int = 1
     semantic_embedding_pricing_input_per_1m_tokens_usd: float = 0.0
+    semantic_chunking_provider: str = "none"
+    semantic_chunking_model: str = "none"
+    semantic_chunking_pricing_input_per_1m_tokens_usd: float = 0.0
+    semantic_chunking_pricing_output_per_1m_tokens_usd: float = 0.0
+    llm_chunking_max_retries: int = 2
     store_backend_id: str
     store_backend_kind: str
     store_backend_runtime_status: str
@@ -295,6 +302,11 @@ def _build_resolved_spec(
         raise ValueError(f"Unknown tool_policy_id: {values['tool_policy_id']}")
     generation = registries.generation_models[values["generation_model_id"]]
     semantic_embedding = registries.embedding_models.get(values["chunking_model_id"])
+    semantic_chunking_model = registries.generation_models.get(values["chunking_model_id"])
+    if chunking.kind == "semantic" and semantic_chunking_model is None:
+        raise ValueError(f"Semantic LLM chunking requires a generation model chunking_model_id: {values['chunking_model_id']}")
+    if chunking.kind == "embedding-boundary" and semantic_embedding is None:
+        raise ValueError(f"Embedding-boundary chunking requires an embedding model chunking_model_id: {values['chunking_model_id']}")
 
     if store_index.backend_id != values["store_backend_id"]:
         raise ValueError(
@@ -308,10 +320,16 @@ def _build_resolved_spec(
         values["chunking_variant_id"],
         values["chunking_model_id"],
     ]
-    if chunking.kind == "semantic":
+    if chunking.kind == "embedding-boundary":
         threshold = str(values.get("semantic_similarity_threshold", 0.8)).replace(".", "p")
         min_sentences = str(values.get("semantic_min_sentences_per_chunk", 2))
         load_parts.extend([f"th-{threshold}", f"min-{min_sentences}"])
+    if chunking.kind == "semantic":
+        load_parts.extend([
+            "prompt-llm-semantic-boundary-v1",
+            "schema-llm-chunk-plan-v1",
+            f"max-{chunking.chunk_size}",
+        ])
     load_variant_id = "__".join(load_parts)
     store_variant_id = (
         f"store-{values['store_backend_id']}__{values['store_index_variant_id']}__"
@@ -349,6 +367,15 @@ def _build_resolved_spec(
         semantic_embedding_pricing_input_per_1m_tokens_usd=(
             semantic_embedding.pricing_input_per_1m_tokens_usd if semantic_embedding is not None else 0.0
         ),
+        semantic_chunking_provider=(semantic_chunking_model.provider if semantic_chunking_model is not None else "none"),
+        semantic_chunking_model=(semantic_chunking_model.model if semantic_chunking_model is not None else "none"),
+        semantic_chunking_pricing_input_per_1m_tokens_usd=(
+            semantic_chunking_model.pricing_input_per_1m_tokens_usd if semantic_chunking_model is not None else 0.0
+        ),
+        semantic_chunking_pricing_output_per_1m_tokens_usd=(
+            semantic_chunking_model.pricing_output_per_1m_tokens_usd if semantic_chunking_model is not None else 0.0
+        ),
+        llm_chunking_max_retries=chunking.llm_chunking_max_retries,
         store_backend_id=values["store_backend_id"],
         store_backend_kind=store_backend.kind,
         store_backend_runtime_status=store_backend.runtime_status,

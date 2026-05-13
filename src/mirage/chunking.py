@@ -171,7 +171,7 @@ class SentenceChunker:
         return output
 
 
-class SemanticChunker:
+class EmbeddingBoundaryChunker:
     def __init__(
         self,
         config: ChunkingConfig,
@@ -194,7 +194,7 @@ class SemanticChunker:
     def _embed_sentences(self, sentences: list[str]) -> list[list[float]]:
         if self._embedder is None:
             raise NotImplementedError(
-                "Semantic chunking requires an embedding-backed sentence segmenter, but runtime sentence embedding integration is not configured yet."
+                "Embedding-boundary chunking requires an embedding-backed sentence segmenter, but runtime sentence embedding integration is not configured yet."
             )
         return self._embedder(sentences)
 

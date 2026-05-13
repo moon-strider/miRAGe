@@ -5,7 +5,7 @@ from pathlib import Path
 from mirage.artifacts import ArtifactLayout
 from mirage.config import ResolvedSpec, load_experiment_specs
 from mirage.evaluate import evaluate_retrieval_spec, evaluate_spec
-from mirage.ingest import ingest_spec
+from mirage.ingest import ingest_spec, prepare_documents, preflight_llm_chunking
 from mirage.io_utils import write_json
 from mirage.registry import parse_cli_overrides
 from mirage.reporting import synthesize_reports
@@ -37,6 +37,33 @@ def run_ingest(
         "built_store_variants": len(artifacts),
         "artifacts": artifacts,
     }
+
+
+def run_chunking_preflight(
+    experiment_path: str | Path,
+    *,
+    overrides: list[str] | None = None,
+) -> dict[str, object]:
+    specs = resolve_specs(experiment_path, overrides)
+    seen_loads: set[str] = set()
+    results: list[dict[str, object]] = []
+    for spec in specs:
+        if spec.load_variant_id in seen_loads or spec.chunking_kind != "semantic":
+            continue
+        seen_loads.add(spec.load_variant_id)
+        documents, prepared_info = prepare_documents(spec, reset=False)
+        preflight = preflight_llm_chunking(spec, documents)
+        results.append(
+            {
+                "experiment_id": spec.experiment_id,
+                "load_variant_id": spec.load_variant_id,
+                "chunking_model_id": spec.chunking_model_id,
+                "chunking_model": spec.semantic_chunking_model,
+                "prepared_dir": prepared_info["prepared_dir"],
+                **preflight.model_dump(mode="json"),
+            }
+        )
+    return {"experiment": str(experiment_path), "semantic_load_variants": len(results), "results": results}
 
 
 def run_retrieval_eval(
