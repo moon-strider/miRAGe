@@ -100,3 +100,17 @@ This row uses full SciFact, Ollama Cloud Nemotron chunk-plan generation, Gemini 
 - Latency is worse than token top-k5 and top-k10, so this is not the SciFact default.
 - SciFact is mostly short documents: 5,173 of 5,183 documents fit within the 1024-token chunk limit, so this dataset is not a strong test for semantic chunking.
 - Next semantic chunking check should be Qasper, where longer paper-like documents make semantic boundaries more likely to matter.
+
+## Wave 6 cross-dataset baseline results
+
+All rows use the current SciFact retrieval baseline: Gemini embeddings, token 1024/128 chunks, Qdrant HNSW cosine, dense top-k10, no reranker, no tool policy, and no LLM generation.
+
+| dataset | eval split | examples | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | p50 ms | p95 ms | projected 1m query cost |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Qasper | dev | 945 | 0.3556 | 0.0751 | 0.3556 | 0.2662 | 0.2878 | 782.61 | 928.60 | 1.95 |
+
+## Wave 6 interpretation
+
+- The SciFact baseline does not transfer cleanly to Qasper: retrieval quality is much lower on long paper-like documents.
+- Qasper is now the priority dataset for the next chunking and reranking checks.
+- The next cross-dataset baseline row to complete is FiQA with the same Gemini token top-k10 configuration.
