@@ -108,9 +108,10 @@ All rows use the current SciFact retrieval baseline: Gemini embeddings, token 10
 | dataset | eval split | examples | Hit@k | Precision@k | Recall@k | MRR@k | NDCG@k | p50 ms | p95 ms | projected 1m query cost |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Qasper | dev | 945 | 0.3556 | 0.0751 | 0.3556 | 0.2662 | 0.2878 | 782.61 | 928.60 | 1.95 |
+| FiQA | test | 648 | 0.8441 | 0.1596 | 0.6559 | 0.6381 | 0.5681 | 754.05 | 923.06 | 2.00 |
 
 ## Wave 6 interpretation
 
-- The SciFact baseline does not transfer cleanly to Qasper: retrieval quality is much lower on long paper-like documents.
-- Qasper is now the priority dataset for the next chunking and reranking checks.
-- The next cross-dataset baseline row to complete is FiQA with the same Gemini token top-k10 configuration.
+- The SciFact baseline transfers reasonably to FiQA, but not to Qasper.
+- Qasper is the weakest dataset for the current dense baseline and should be the priority for the next chunking and reranking checks.
+- FiQA is strong enough to act as the second baseline dataset for reranker validation after Qasper-specific weakness is understood.
