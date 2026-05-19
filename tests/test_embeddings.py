@@ -49,6 +49,21 @@ class _TypeErrorThenSuccessEmbeddingsClient:
         return SimpleNamespace(data=data, usage=usage)
 
 
+class _SecondBatchFailsEmbeddingsClient:
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+        self.embeddings = self
+
+    def create(self, *, model: str, input: list[str]) -> SimpleNamespace:
+        del model
+        self.calls.append(list(input))
+        if input == ["doc-3"]:
+            raise RuntimeError("batch failed")
+        data = [SimpleNamespace(embedding=[float(index), 9.0]) for index, _ in enumerate(input)]
+        usage = SimpleNamespace(prompt_tokens=len(input) * 10)
+        return SimpleNamespace(data=data, usage=usage)
+
+
 @pytest.mark.parametrize("batch_size,expected_batches", [(2, [2, 2, 1]), (3, [3, 2])])
 def test_openrouter_embeddings_are_sent_in_batches(
     monkeypatch: pytest.MonkeyPatch,
@@ -157,3 +172,32 @@ def test_embeddings_cache_only_requests_missing_texts(monkeypatch: pytest.Monkey
 
     assert [batch for _, batch in client.calls] == [["q1", "q2"], ["q3"]]
     assert vectors == [[0.0, 1.0], [1.0, 1.0], [2.0, 1.0]]
+
+
+def test_openrouter_cache_persists_completed_batches_on_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    failing_client = _SecondBatchFailsEmbeddingsClient()
+    monkeypatch.setattr("mirage.embeddings._make_openrouter_client", lambda env: failing_client)
+    common = {
+        "provider": "openrouter",
+        "model": "openai/text-embedding-3-small",
+        "texts": ["doc-1", "doc-2", "doc-3"],
+        "batch_size": 2,
+        "env": SimpleNamespace(openrouter_api_key="test", openrouter_base_url="https://openrouter.ai/api/v1"),
+        "pricing_input_per_1m_tokens_usd": 0.02,
+        "cache_dir": tmp_path / "embeddings",
+        "cache_namespace": "store/fiqa",
+    }
+
+    with pytest.raises(RuntimeError, match="batch failed"):
+        embed_texts(**common)
+
+    assert len(list((tmp_path / "embeddings").rglob("*.json"))) == 2
+
+    resume_client = _FakeEmbeddingsClient()
+    monkeypatch.setattr("mirage.embeddings._make_openrouter_client", lambda env: resume_client)
+    vectors, _, _ = embed_texts(**common)
+
+    assert [batch for _, batch in resume_client.calls] == [["doc-3"]]
+    assert vectors == [[0.0, 9.0], [1.0, 9.0], [0.0, 1.0]]

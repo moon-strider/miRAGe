@@ -103,6 +103,21 @@ def _write_cached_vector(path: Path, *, provider: str, model: str, text: str, ve
     path.write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8")
 
 
+def _assigned_token_counts(texts: list[str], token_count: int) -> list[int]:
+    estimated_tokens = [estimate_token_count([text]) for text in texts]
+    estimated_total = sum(estimated_tokens) or len(texts)
+    assigned: list[int] = []
+    remainder = token_count
+    for position, estimated in enumerate(estimated_tokens):
+        if position == len(estimated_tokens) - 1:
+            assigned.append(remainder)
+            continue
+        count = round((estimated / estimated_total) * token_count)
+        assigned.append(count)
+        remainder -= count
+    return assigned
+
+
 def _embed_uncached_texts(
     *,
     provider: str,
@@ -131,6 +146,41 @@ def _embed_uncached_texts(
         return vectors, token_count
 
     raise NotImplementedError(f"Unsupported embedding provider: {provider}")
+
+
+def _embed_and_cache_openrouter_missing(
+    *,
+    model: str,
+    missing_indexes: list[int],
+    missing_texts: list[str],
+    missing_paths: list[Path],
+    batch_size: int,
+    env: EnvironmentSettings,
+    vectors_by_index: dict[int, list[float]],
+    tokens_by_index: dict[int, int],
+) -> None:
+    client = _make_openrouter_client(env)
+    for start in range(0, len(missing_texts), batch_size):
+        batch = missing_texts[start : start + batch_size]
+        batch_indexes = missing_indexes[start : start + batch_size]
+        batch_paths = missing_paths[start : start + batch_size]
+        response = _create_embeddings_with_retries(client, model=model, batch=batch)
+        usage = getattr(response, "usage", None)
+        if usage and getattr(usage, "prompt_tokens", None) is not None:
+            token_count = int(usage.prompt_tokens)
+        else:
+            token_count = estimate_token_count(batch)
+        assigned_tokens = _assigned_token_counts(batch, token_count)
+        data = getattr(response, "data")
+        for index, path, text, item, token_count_for_text in zip(
+            batch_indexes, batch_paths, batch, data, assigned_tokens, strict=True
+        ):
+            vector_values = [float(value) for value in item.embedding]
+            _write_cached_vector(
+                path, provider="openrouter", model=model, text=text, vector=vector_values, token_count=token_count_for_text
+            )
+            vectors_by_index[index] = vector_values
+            tokens_by_index[index] = token_count_for_text
 
 
 def embed_texts(
@@ -173,30 +223,31 @@ def embed_texts(
             tokens_by_index[index] = cached_token_count
 
     if missing_texts:
-        new_vectors, new_token_count = _embed_uncached_texts(
-            provider=provider, model=model, texts=missing_texts, batch_size=batch_size, env=env
-        )
-        estimated_missing_tokens = [estimate_token_count([text]) for text in missing_texts]
-        estimated_total = sum(estimated_missing_tokens) or len(missing_texts)
-        assigned_tokens: list[int] = []
-        remainder = new_token_count
-        for position, estimated_tokens in enumerate(estimated_missing_tokens):
-            if position == len(estimated_missing_tokens) - 1:
-                token_count_for_text = remainder
-            else:
-                token_count_for_text = round((estimated_tokens / estimated_total) * new_token_count)
-                remainder -= token_count_for_text
-            assigned_tokens.append(token_count_for_text)
-        for position, (index, path, text, vector) in enumerate(
-            zip(missing_indexes, missing_paths, missing_texts, new_vectors, strict=True)
-        ):
-            vector_values = [float(value) for value in vector]
-            token_count_for_text = assigned_tokens[position]
-            _write_cached_vector(
-                path, provider=provider, model=model, text=text, vector=vector_values, token_count=token_count_for_text
+        if provider == "openrouter":
+            _embed_and_cache_openrouter_missing(
+                model=model,
+                missing_indexes=missing_indexes,
+                missing_texts=missing_texts,
+                missing_paths=missing_paths,
+                batch_size=batch_size,
+                env=env,
+                vectors_by_index=vectors_by_index,
+                tokens_by_index=tokens_by_index,
             )
-            vectors_by_index[index] = vector_values
-            tokens_by_index[index] = token_count_for_text
+        else:
+            new_vectors, new_token_count = _embed_uncached_texts(
+                provider=provider, model=model, texts=missing_texts, batch_size=batch_size, env=env
+            )
+            assigned_tokens = _assigned_token_counts(missing_texts, new_token_count)
+            for index, path, text, vector, token_count_for_text in zip(
+                missing_indexes, missing_paths, missing_texts, new_vectors, assigned_tokens, strict=True
+            ):
+                vector_values = [float(value) for value in vector]
+                _write_cached_vector(
+                    path, provider=provider, model=model, text=text, vector=vector_values, token_count=token_count_for_text
+                )
+                vectors_by_index[index] = vector_values
+                tokens_by_index[index] = token_count_for_text
 
     vectors = [vectors_by_index[index] for index in range(len(texts))]
     token_count = sum(tokens_by_index.values())
